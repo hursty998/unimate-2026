@@ -1,1 +1,46 @@
+# Dependencies and build output
+**/node_modules/
+**/.turbo/
+**/dist/
+**/build/
+**/coverage/
+*.tsbuildinfo
+
+# Expo and native build artefacts
+**/.expo/
+**/.expo-shared/
+/apps/mobile/ios/
+/apps/mobile/android/
+/apps/mobile/web-build/
+*.ipa
+*.apk
+*.aab
+*.xcarchive
+DerivedData/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local Supabase runtime state (keep config, migrations, and seeds)
+/supabase/.temp/
+/supabase/.branches/
+
+# Local generated review output
+/docs/generated/git-diff.md
+
+# Test output
+/test-results/
+/playwright-report/
+/blob-report/
+/.nyc_output/
+
+# Logs and editor/OS noise
+*.log
 .DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
