@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "skills": {
+    "agent-device": {
+      "source": "callstack/agent-device",
+      "sourceType": "github",
+      "skillPath": "skills/agent-device/SKILL.md",
+      "computedHash": "3187ae73a1a8b055e20630d64c86e5bb7576341b495c9a755f5e3ec7927c0302"
+    },
+    "android-emulator": {
+      "source": "callstack/agent-device",
+      "sourceType": "github",
+      "skillPath": "skills/android-emulator/SKILL.md",
+      "computedHash": "20b3ca719cceeb25a7442f167f5ae60a816e03cd2b05dc3574cdd9d9056e8dac"
+    },
+    "eas-app-stores": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/eas-app-stores/SKILL.md",
+      "computedHash": "687009e0cecbbf58674428d2f38a2a2f54ea10551e043ec104e2002087705627"
+    },
+    "eas-workflows": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/eas-workflows/SKILL.md",
+      "computedHash": "3d4cb910272bac1bdc5f2a11baede35a3042ae7a776865e9b3a78e354bc6394a"
+    },
+    "expo-data-fetching": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-data-fetching/SKILL.md",
+      "computedHash": "e3d31524a94bc06915293a1ececfe23b60c13e89c733f0d6780606669ad60ef9"
+    },
+    "expo-dev-client": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-dev-client/SKILL.md",
+      "computedHash": "9560a3f40e699af7b3317dbd3887cca646901d6addf7d78eb9429922e2d3baf3"
+    },
+    "expo-native-ui": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-native-ui/SKILL.md",
+      "computedHash": "3e7374ba3679e4e57cbe6aa97c8bcc17c977b7c526b00e0e67b9e0ccd119ba68"
+    },
+    "expo-overview": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-overview/SKILL.md",
+      "computedHash": "ae10834702315c887df298a220712bf5e89ab6a0d9088eb54c6d7fddddb3e8b3"
+    },
+    "expo-project-structure": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-project-structure/SKILL.md",
+      "computedHash": "d131a20d31b81e7e04b9ede9f0271bd14e161a8fa525e2e9ba42ba766fe25d2d"
+    },
+    "expo-router": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-router/SKILL.md",
+      "computedHash": "512978d4ea35857932b79ee9b15a47d7ab78382dc1fcd275601b87e4c80c1e59"
+    },
+    "ios-simulator": {
+      "source": "callstack/agent-device",
+      "sourceType": "github",
+      "skillPath": "skills/ios-simulator/SKILL.md",
+      "computedHash": "a0196ca78c5af1e2f25f4d534b3971fe8d9e5e6aa02a2d0f35a53b222bca57da"
+    },
+    "prisma-cli": {
+      "source": "prisma/skills",
+      "sourceType": "github",
+      "skillPath": "prisma-cli/SKILL.md",
+      "computedHash": "aaec1e0169bb8ae74b0e3c4b39a4ed00cef79741df42fb9c93771736fccf378f"
+    },
+    "prisma-client-api": {
+      "source": "prisma/skills",
+      "sourceType": "github",
+      "skillPath": "prisma-client-api/SKILL.md",
+      "computedHash": "cbbabff961c8e16b2d59f8c1ffb4e7e20be52154e778ab95121e0211d6d09969"
+    },
+    "prisma-orm-setup": {
+      "source": "prisma/skills",
+      "sourceType": "github",
+      "skillPath": "prisma-orm-setup/SKILL.md",
+      "computedHash": "08c8bc188c5a304f549aea607320905c9edc0485692182bf590a56dfc71617ca"
+    },
+    "skill-creator": {
+      "source": "openai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/.system/skill-creator/SKILL.md",
+      "computedHash": "c1f04920b03c2a412e1d0b90680dc10b6de64793db7daae7e4bf64535b9fdf75"
+    },
+    "supabase": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase/SKILL.md",
+      "computedHash": "211141fd078b4b3645803868528d54221bc7755d24d5c8af45a366785c151dba"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
+      "computedHash": "e14e276241805c97dbcfe40dcbea1a3035269cc7293cac4b1832dda41a835e60"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "skillPath": "skills/turborepo/SKILL.md",
+      "computedHash": "9681d8dfeb5e6cdff767f1bcaba5d7ac55732a9d6c02ee120f44229f8ec25e7e"
+    }
+  }
+}
