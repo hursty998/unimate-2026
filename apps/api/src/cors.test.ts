@@ -9,6 +9,9 @@ test("CORS allows the API method set without widening configured origins", async
     port: 3000,
     nodeEnv: "production",
     corsOrigins: [allowedOrigin],
+    databaseUrl: "postgresql://localhost/postgres?schema=app",
+    supabaseUrl: "http://127.0.0.1:55321",
+    supabaseJwtAudience: "authenticated",
   });
 
   try {

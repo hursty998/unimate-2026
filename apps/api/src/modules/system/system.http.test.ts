@@ -3,7 +3,15 @@ import { test } from "node:test";
 import { createApiApplication } from "../../app.js";
 
 test("GET /v1/system/health serves the contract response over Fastify", async () => {
-  const app = await createApiApplication();
+  const app = await createApiApplication({
+    host: "127.0.0.1",
+    port: 3000,
+    nodeEnv: "test",
+    corsOrigins: [],
+    databaseUrl: "postgresql://localhost/postgres?schema=app",
+    supabaseUrl: "http://127.0.0.1:55321",
+    supabaseJwtAudience: "authenticated",
+  });
 
   try {
     const response = await app.inject({

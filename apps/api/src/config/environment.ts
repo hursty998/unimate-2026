@@ -4,14 +4,34 @@ const httpOriginSchema = z
   .string()
   .url()
   .refine((origin) => {
-    const parsedOrigin = new URL(origin);
+    try {
+      const parsedOrigin = new URL(origin);
 
-    return (
-      (parsedOrigin.protocol === "http:" ||
-        parsedOrigin.protocol === "https:") &&
-      parsedOrigin.origin === origin
-    );
+      return (
+        (parsedOrigin.protocol === "http:" ||
+          parsedOrigin.protocol === "https:") &&
+        parsedOrigin.origin === origin
+      );
+    } catch {
+      return false;
+    }
   }, "Expected an HTTP(S) origin without a path");
+
+const postgresUrlSchema = z
+  .string()
+  .url()
+  .refine((value) => {
+    try {
+      const parsedUrl = new URL(value);
+
+      return (
+        parsedUrl.protocol === "postgres:" ||
+        parsedUrl.protocol === "postgresql:"
+      );
+    } catch {
+      return false;
+    }
+  }, "Expected a PostgreSQL connection URL");
 
 const apiEnvironmentSchema = z.object({
   API_HOST: z.string().min(1).default("0.0.0.0"),
@@ -29,6 +49,9 @@ const apiEnvironmentSchema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(httpOriginSchema)),
+  DATABASE_URL: postgresUrlSchema,
+  SUPABASE_URL: httpOriginSchema,
+  SUPABASE_JWT_AUDIENCE: z.string().trim().min(1).default("authenticated"),
 });
 
 export type ApiConfig = {
@@ -36,6 +59,9 @@ export type ApiConfig = {
   port: number;
   nodeEnv: "development" | "test" | "production";
   corsOrigins: string[];
+  databaseUrl: string;
+  supabaseUrl: string;
+  supabaseJwtAudience: string;
 };
 
 export function parseApiConfig(
@@ -48,5 +74,8 @@ export function parseApiConfig(
     port: parsedEnvironment.API_PORT,
     nodeEnv: parsedEnvironment.NODE_ENV,
     corsOrigins: parsedEnvironment.API_CORS_ORIGINS,
+    databaseUrl: parsedEnvironment.DATABASE_URL,
+    supabaseUrl: parsedEnvironment.SUPABASE_URL,
+    supabaseJwtAudience: parsedEnvironment.SUPABASE_JWT_AUDIENCE,
   };
 }

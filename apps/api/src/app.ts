@@ -5,7 +5,8 @@ import {
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module.js";
-import { parseApiConfig, type ApiConfig } from "./config/environment.js";
+import type { ApiConfig } from "./config/environment.js";
+import type { AuthModuleOverrides } from "./modules/auth/auth.module.js";
 
 const localDevelopmentOrigins = [
   /^https?:\/\/localhost(?::\d+)?$/,
@@ -24,10 +25,11 @@ const corsMethods = [
 ];
 
 export async function createApiApplication(
-  config: ApiConfig = parseApiConfig(),
+  config: ApiConfig,
+  authOverrides: AuthModuleOverrides = {},
 ): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
+    AppModule.register(config, authOverrides),
     new FastifyAdapter(),
     { bodyParser: false },
   );
