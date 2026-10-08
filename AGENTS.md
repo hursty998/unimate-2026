@@ -87,11 +87,12 @@ running app. See the mobile guidance and
 See the concise [Agent workflow](./docs/engineering/AGENT_WORKFLOW.md) for the
 normal coding loop, instruction hygiene, Skills, and hook decisions.
 
-For substantial implementation, refactor, or debugging work, after
-implementation and verification and before handoff, run the
-[UniMate retrospective Skill](./.agents/skills/unimate-retrospective/SKILL.md).
-Persist changes only when a lesson passes its durability gate. Skip trivial or
-documentation-only edits where no meaningful coding session occurred.
+For substantial implementation, refactor, or debugging work, follow the
+[Agent workflow](./docs/engineering/AGENT_WORKFLOW.md): run the
+[UniMate retrospective Skill](./.agents/skills/unimate-retrospective/SKILL.md)
+after focused checks and before one final `pnpm verify`. Do not retrospect again
+after final verification. Persist only durable lessons; skip trivial or
+documentation-only edits.
 
 ## Completion
 

@@ -19,18 +19,28 @@ task
 -> focused implementation
 -> focused verification
 -> verify:changed where useful
--> one final verify
 -> runtime/UI inspection when relevant
--> diff review
 -> retrospective
+-> persist durable improvements if any
+-> focused verification of persisted improvements
+-> one final pnpm verify on the final working tree
+-> final diff review
 -> handoff
 ```
 
 Use the smallest useful test loop while implementing. Run
 `pnpm verify:changed` when its affected-task feedback is useful, then run
-`pnpm verify` once for final repository validation. Use
-`pnpm verify:verbose` when live child output is needed. Inspect browser/native
-runtime only when the change affects that runtime.
+the retrospective before the final full verification if the task is substantial.
+After any retrospective changes, verify them narrowly, then run exactly one
+canonical `pnpm verify` on the final working tree. Do not run another
+retrospective after that final verify.
+
+Use `pnpm verify:verbose` when live child output is needed. Inspect browser/native
+runtime only when the change affects that runtime. If final verification finds
+a normal implementation failure, fix it, rerun its focused check, and rerun
+final verification. If it reveals only a new non-blocking agent-process lesson,
+defer it to a later deliberate retrospective/harness pass rather than starting
+another self-improvement cycle.
 
 ## Retrospective and self-improvement
 

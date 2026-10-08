@@ -5,11 +5,13 @@ description: "Review a substantial completed UniMate coding, refactor, or debugg
 
 # UniMate Retrospective
 
-Use after implementation and verification, before handoff of substantial coding,
-refactor, or debugging work. Skip trivial interactions and documentation-only
-edits with no meaningful coding session.
+Use after focused implementation/verification and relevant runtime inspection,
+but before the parent substantial task's single final `pnpm verify`. Skip
+trivial interactions and documentation-only edits with no meaningful coding
+session.
 
 Do not invoke this workflow recursively on its own implementation.
+Do not invoke it again after the parent task's final verification.
 
 ## 1. Review session evidence
 
@@ -77,7 +79,15 @@ UniMate-owned. Make at most a small number of durable changes from one session.
 ## 5. Verify and report
 
 Run the narrowest check that proves each persisted improvement. Do not repeat
-expensive runtime workflows just because prose changed.
+expensive runtime workflows just because prose changed. After retrospective
+changes have been verified, the parent substantial task must run one canonical
+`pnpm verify` against the final working tree; this Skill must not run again
+afterward.
+
+If that final verification finds a normal implementation failure, fix it, rerun
+the relevant focused check, and rerun final verification. If it reveals only a
+new non-blocking agent-process lesson, defer it to a later deliberate
+retrospective/harness pass rather than restarting this workflow.
 
 In the handoff, briefly state:
 
