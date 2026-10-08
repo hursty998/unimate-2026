@@ -2,6 +2,7 @@ interface SupabaseTestBucketOptions {
   supabaseUrl: string;
   secretKey: string;
   bucketName: string;
+  fetcher?: typeof fetch;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -29,6 +30,7 @@ export async function withSupabaseTestBucket<T>(
   run: () => Promise<T>,
 ): Promise<T> {
   const projectUrl = requireLoopbackUrl(options.supabaseUrl);
+  const fetcher = options.fetcher ?? globalThis.fetch;
   const headers = new Headers({
     Accept: "application/json",
     apikey: options.secretKey,
@@ -36,7 +38,7 @@ export async function withSupabaseTestBucket<T>(
     "Content-Type": "application/json",
   });
   const bucketUrl = new URL("/storage/v1/bucket", projectUrl);
-  const listResponse = await fetch(bucketUrl, {
+  const listResponse = await fetcher(bucketUrl, {
     headers,
     signal: AbortSignal.timeout(10_000),
   });
@@ -61,9 +63,17 @@ export async function withSupabaseTestBucket<T>(
     throw new Error("Local Storage returned an invalid bucket list.");
   }
 
-  const bucketExists = bucketList.some(
+  const existingBucket = bucketList.find(
     (bucket) => isRecord(bucket) && bucket["id"] === options.bucketName,
   );
+  const bucketExists = existingBucket !== undefined;
+
+  if (
+    bucketExists &&
+    (!isRecord(existingBucket) || existingBucket["public"] !== false)
+  ) {
+    throw new Error("The existing local Storage test bucket must be private.");
+  }
   let bucketCreated = false;
   let operationFailed = false;
   let operationFailure: unknown;
@@ -72,7 +82,7 @@ export async function withSupabaseTestBucket<T>(
 
   try {
     if (!bucketExists) {
-      const createResponse = await fetch(bucketUrl, {
+      const createResponse = await fetcher(bucketUrl, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -102,7 +112,7 @@ export async function withSupabaseTestBucket<T>(
 
   if (bucketCreated) {
     try {
-      const deleteResponse = await fetch(
+      const deleteResponse = await fetcher(
         new URL(
           `/storage/v1/bucket/${encodeURIComponent(options.bucketName)}`,
           projectUrl,

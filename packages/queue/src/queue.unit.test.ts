@@ -6,6 +6,8 @@ import type {
   QueueMessageId,
   ReceivedQueueMessage,
 } from "./index.js";
+import { toJsonValue } from "./json-value.js";
+import { parseQueueRow } from "./queue-row.js";
 
 test("JobQueue can be implemented by a provider-free deterministic fake", async () => {
   const messages = new Map<string, JsonValue>();
@@ -45,4 +47,52 @@ test("JobQueue can be implemented by a provider-free deterministic fake", async 
     await queue.receive({ visibilityTimeoutSeconds: 5, limit: 1 }),
     [],
   );
+});
+
+test("JSON-parsed __proto__ properties round-trip as own JSON data", () => {
+  const input: unknown = JSON.parse(
+    '{"__proto__":{"polluted":true},"nested":{"__proto__":"value"}}',
+  );
+  const normalized = toJsonValue(input);
+  const serialized = JSON.stringify(normalized);
+
+  assert.equal(typeof serialized, "string");
+  assert.deepEqual(JSON.parse(serialized), input);
+  assert.equal(Object.getPrototypeOf(normalized), Object.prototype);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(normalized, "__proto__"),
+    true,
+  );
+});
+
+test("rejects malformed PGMQ rows with provider-neutral queue semantics", () => {
+  const validRow = {
+    message_id: "12",
+    read_count: 1,
+    message: { fixture: "phase7-test" },
+  };
+
+  assert.deepEqual(parseQueueRow(validRow), {
+    id: "12",
+    payload: { fixture: "phase7-test" },
+    deliveryCount: 1,
+  });
+
+  for (const row of [
+    { ...validRow, message_id: "0" },
+    { ...validRow, message_id: "9223372036854775808" },
+    { ...validRow, read_count: 0 },
+    { ...validRow, read_count: Number.MAX_SAFE_INTEGER + 1 },
+    { ...validRow, message: new Date() },
+  ]) {
+    assert.throws(
+      () => parseQueueRow(row),
+      (error: unknown) =>
+        error instanceof Error &&
+        "kind" in error &&
+        error.kind === "rejected" &&
+        "operation" in error &&
+        error.operation === "receive",
+    );
+  }
 });

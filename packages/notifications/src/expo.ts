@@ -2,6 +2,8 @@ import {
   PushProviderError,
   type PushMessage,
   type PushProvider,
+  type PushSubmission,
+  type PushSubmissionHandle,
 } from "./index.js";
 
 const EXPO_PUSH_ENDPOINT = "https://exp.host/--/api/v2/push/send";
@@ -16,7 +18,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isJsonValue(value: unknown): boolean {
+function isJsonValue(
+  value: unknown,
+  ancestors = new WeakSet<object>(),
+): boolean {
   if (
     value === null ||
     typeof value === "string" ||
@@ -29,15 +34,76 @@ function isJsonValue(value: unknown): boolean {
     return Number.isFinite(value);
   }
 
-  if (Array.isArray(value)) {
-    return value.every(isJsonValue);
+  if (typeof value !== "object" || ancestors.has(value)) {
+    return false;
   }
 
-  if (isRecord(value)) {
-    return Object.values(value).every(isJsonValue);
-  }
+  ancestors.add(value);
 
-  return false;
+  try {
+    if (Array.isArray(value)) {
+      if (Object.getPrototypeOf(value) !== Array.prototype) {
+        return false;
+      }
+
+      const ownKeys = Reflect.ownKeys(value);
+      if (
+        ownKeys.some(
+          (key) =>
+            typeof key !== "string" ||
+            (key !== "length" &&
+              (!/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= value.length)),
+        )
+      ) {
+        return false;
+      }
+
+      for (let index = 0; index < value.length; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(
+          value,
+          String(index),
+        );
+        if (
+          descriptor === undefined ||
+          !descriptor.enumerable ||
+          !("value" in descriptor) ||
+          !isJsonValue(descriptor.value, ancestors)
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    if (
+      !isRecord(value) ||
+      (Object.getPrototypeOf(value) !== Object.prototype &&
+        Object.getPrototypeOf(value) !== null)
+    ) {
+      return false;
+    }
+
+    for (const key of Reflect.ownKeys(value)) {
+      if (typeof key !== "string") {
+        return false;
+      }
+
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (
+        descriptor === undefined ||
+        !descriptor.enumerable ||
+        !("value" in descriptor) ||
+        !isJsonValue(descriptor.value, ancestors)
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  } finally {
+    ancestors.delete(value);
+  }
 }
 
 export class ExpoPushProvider implements PushProvider {
@@ -57,12 +123,16 @@ export class ExpoPushProvider implements PushProvider {
     }
   }
 
-  async send(message: PushMessage): Promise<void> {
+  async send(message: PushMessage): Promise<PushSubmission> {
     if (
       message.destinationToken.trim().length === 0 ||
       message.title.trim().length === 0 ||
       message.body.trim().length === 0 ||
-      (message.data !== undefined && !isJsonValue(message.data))
+      (message.data !== undefined &&
+        (!isRecord(message.data) ||
+          (Object.getPrototypeOf(message.data) !== Object.prototype &&
+            Object.getPrototypeOf(message.data) !== null) ||
+          !isJsonValue(message.data)))
     ) {
       throw new TypeError("Push message fields must contain valid values.");
     }
@@ -136,7 +206,20 @@ export class ExpoPushProvider implements PushProvider {
     const ticket = tickets[0];
 
     if (ticket["status"] === "ok") {
-      return;
+      const receiptId = ticket["id"];
+
+      if (
+        typeof receiptId !== "string" ||
+        receiptId.trim().length === 0 ||
+        receiptId !== receiptId.trim()
+      ) {
+        throw new PushProviderError(
+          "transient",
+          "Expo Push returned an invalid ticket response.",
+        );
+      }
+
+      return { handle: receiptId as PushSubmissionHandle };
     }
 
     if (ticket["status"] !== "error") {

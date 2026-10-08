@@ -1,4 +1,4 @@
-import pg, { type QueryResultRow } from "pg";
+import pg from "pg";
 import {
   JobQueueError,
   type JobQueue,
@@ -6,6 +6,8 @@ import {
   type QueueMessageId,
   type ReceivedQueueMessage,
 } from "./index.js";
+import { toJsonValue } from "./json-value.js";
+import { isValidQueueMessageId, parseQueueRow } from "./queue-row.js";
 
 const DEFAULT_TIMEOUT_MILLISECONDS = 5_000;
 const TRANSIENT_POSTGRES_ERROR_CODES = new Set([
@@ -29,20 +31,6 @@ export interface SupabaseJobQueueOptions {
   timeoutMilliseconds?: number;
 }
 
-interface QueueRow extends QueryResultRow {
-  message_id: string;
-  read_count: number;
-  message: unknown;
-}
-
-interface QueueIdRow extends QueryResultRow {
-  message_id: string;
-}
-
-interface AcknowledgementRow extends QueryResultRow {
-  acknowledged: boolean;
-}
-
 function validateQueueName(value: string): void {
   if (!/^[a-z0-9_-]{1,55}$/.test(value)) {
     throw new TypeError(
@@ -52,68 +40,8 @@ function validateQueueName(value: string): void {
 }
 
 function validateQueueMessageId(value: QueueMessageId): void {
-  if (!/^[1-9][0-9]*$/.test(value)) {
+  if (!isValidQueueMessageId(value)) {
     throw new TypeError("The queue message identifier is invalid.");
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function toJsonValue(
-  value: unknown,
-  ancestors = new WeakSet<object>(),
-): JsonValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean" ||
-    (typeof value === "number" && Number.isFinite(value))
-  ) {
-    return value;
-  }
-
-  if (typeof value !== "object" || ancestors.has(value)) {
-    throw new TypeError("The queue message must be valid, acyclic JSON.");
-  }
-
-  ancestors.add(value);
-
-  try {
-    if (Array.isArray(value)) {
-      const result: JsonValue[] = [];
-
-      for (let index = 0; index < value.length; index += 1) {
-        if (!(index in value)) {
-          throw new TypeError(
-            "The queue message must not contain array holes.",
-          );
-        }
-
-        result.push(toJsonValue(value[index], ancestors));
-      }
-
-      return result;
-    }
-
-    if (
-      !isRecord(value) ||
-      (Object.getPrototypeOf(value) !== Object.prototype &&
-        Object.getPrototypeOf(value) !== null)
-    ) {
-      throw new TypeError("The queue message must contain only JSON values.");
-    }
-
-    const result: Record<string, JsonValue> = {};
-
-    for (const [key, entry] of Object.entries(value)) {
-      result[key] = toJsonValue(entry, ancestors);
-    }
-
-    return result;
-  } finally {
-    ancestors.delete(value);
   }
 }
 
@@ -149,14 +77,6 @@ function mapQueueError(
   );
 }
 
-function parsePayload(value: unknown): JsonValue {
-  try {
-    return toJsonValue(value);
-  } catch (cause) {
-    throw new JobQueueError("rejected", "receive", { cause });
-  }
-}
-
 export class SupabaseJobQueue implements JobQueue {
   private readonly pool: pg.Pool;
 
@@ -186,13 +106,13 @@ export class SupabaseJobQueue implements JobQueue {
     }
 
     try {
-      const result = await this.pool.query<QueueIdRow>(
+      const result = await this.pool.query<{ message_id: string }>(
         "select pgmq.send($1::text, $2::jsonb)::text as message_id",
         [this.options.queueName, serialized],
       );
       const row = result.rows[0];
 
-      if (row === undefined || !/^[1-9][0-9]*$/.test(row.message_id)) {
+      if (row === undefined || !isValidQueueMessageId(row.message_id)) {
         throw new JobQueueError(
           "rejected",
           "enqueue",
@@ -232,16 +152,12 @@ export class SupabaseJobQueue implements JobQueue {
     }
 
     try {
-      const result = await this.pool.query<QueueRow>(
+      const result = await this.pool.query(
         "select msg_id::text as message_id, read_ct as read_count, message from pgmq.read($1::text, $2::integer, $3::integer)",
         [this.options.queueName, visibilityTimeoutSeconds, limit],
       );
 
-      return result.rows.map((row) => ({
-        id: row.message_id as QueueMessageId,
-        payload: parsePayload(row.message),
-        deliveryCount: row.read_count,
-      }));
+      return result.rows.map(parseQueueRow);
     } catch (cause) {
       if (cause instanceof JobQueueError) {
         throw cause;
@@ -255,7 +171,7 @@ export class SupabaseJobQueue implements JobQueue {
     validateQueueMessageId(messageId);
 
     try {
-      const result = await this.pool.query<AcknowledgementRow>(
+      const result = await this.pool.query<{ acknowledged: boolean }>(
         "select pgmq.delete($1::text, $2::bigint) as acknowledged",
         [this.options.queueName, messageId],
       );

@@ -15,9 +15,14 @@ Do not invoke it again after the parent task's final verification.
 
 ## 1. Review session evidence
 
-Look for:
+Before concluding that no durable improvement is needed, explicitly review:
 
-- failed commands or patches and retries;
+- every failed command, tool call, and patch, including retries and recovery;
+- commands/checks repeated three or more times;
+- whether the session ran multiple full `pnpm verify` commands;
+- repeated ad-hoc diagnostic or security one-liners;
+- repeated failed external-documentation or MCP attempts;
+- substantive edits made after a claimed final verification;
 - broad or repeated reads that added little value;
 - stale or contradictory documentation;
 - user corrections or misunderstood requirements;
@@ -58,6 +63,11 @@ Persist a lesson only when it is:
 
 The default result may be **“No durable repository improvement required.”**
 Zero permanent changes is a healthy outcome.
+
+That conclusion is valid only after naming the largest recurring friction
+observed in this session and explicitly deciding why it does or does not pass
+the durability gate. Reviewing a checklist item does not imply that it must
+produce a repository change.
 
 ## 4. Choose the smallest effective mechanism
 

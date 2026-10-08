@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ExpoPushProvider } from "./expo.js";
-import { PushProviderError, type PushMessage } from "./index.js";
+import {
+  PushProviderError,
+  type PushDataValue,
+  type PushMessage,
+} from "./index.js";
 
 const message: PushMessage = {
   destinationToken: "ExponentPushToken[synthetic]",
@@ -30,7 +34,9 @@ test("sends one provider-neutral message to the documented Expo endpoint", async
     },
   });
 
-  assert.equal(await provider.send(message), undefined);
+  assert.deepEqual(await provider.send(message), {
+    handle: "expo-ticket-not-exposed",
+  });
   assert.equal(requestUrl, "https://exp.host/--/api/v2/push/send");
   assert.equal(requestInit?.method, "POST");
   assert.deepEqual(requestInit?.headers, {
@@ -43,6 +49,20 @@ test("sends one provider-neutral message to the documented Expo endpoint", async
     body: message.body,
     data: message.data,
   });
+});
+
+test("rejects successful Expo tickets without a non-empty receipt handle", async () => {
+  for (const id of [undefined, "", " \t ", " padded-id "]) {
+    const provider = new ExpoPushProvider({
+      fetcher: async () => response({ data: { status: "ok", id } }),
+    });
+
+    await assert.rejects(
+      provider.send(message),
+      (error: unknown) =>
+        error instanceof PushProviderError && error.kind === "transient",
+    );
+  }
 });
 
 test("maps Expo's invalid-device ticket without exposing its response", async () => {
@@ -112,4 +132,32 @@ test("maps other Expo ticket errors to permanent provider rejection", async () =
     (error: unknown) =>
       error instanceof PushProviderError && error.kind === "rejected",
   );
+});
+
+test("rejects cyclic, sparse, non-finite, and non-plain push data before sending", async () => {
+  let requestCount = 0;
+  const provider = new ExpoPushProvider({
+    fetcher: async () => {
+      requestCount += 1;
+      return response({ data: { status: "ok", id: "synthetic-handle" } });
+    },
+  });
+  const cyclicData: Record<string, PushDataValue> = {};
+  cyclicData["self"] = cyclicData;
+  const sparseArray: PushDataValue[] = [];
+  sparseArray.length = 1;
+
+  for (const data of [
+    cyclicData,
+    { value: new Date() },
+    { value: sparseArray },
+    { value: Number.NaN },
+  ]) {
+    await assert.rejects(
+      provider.send({ ...message, data } as PushMessage),
+      TypeError,
+    );
+  }
+
+  assert.equal(requestCount, 0);
 });

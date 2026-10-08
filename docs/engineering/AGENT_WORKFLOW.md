@@ -16,31 +16,36 @@ discoverable.
 ```text
 task
 -> inspect relevant docs and code
--> focused implementation
--> focused verification
--> verify:changed where useful
--> runtime/UI inspection when relevant
+-> implementation
+-> focused checks
+-> deep changed-code/diff review
 -> retrospective
--> persist durable improvements if any
--> focused verification of persisted improvements
--> one final pnpm verify on the final working tree
--> final diff review
+-> persist/fix durable findings
+-> verify:changed where useful
+-> one final pnpm verify
+-> lightweight final status/security checks
 -> handoff
 ```
 
-Use the smallest useful test loop while implementing. Run
-`pnpm verify:changed` when its affected-task feedback is useful, then run
-the retrospective before the final full verification if the task is substantial.
-After any retrospective changes, verify them narrowly, then run exactly one
-canonical `pnpm verify` on the final working tree. Do not run another
-retrospective after that final verify.
+Use the smallest useful checks while implementing, then deeply review the
+changed code and diff before the retrospective and final verification. For
+substantial tasks, run the retrospective before final verification. Persist
+durable findings, fix resulting issues, and run `pnpm verify:changed` when its
+affected-task feedback is useful. Then run exactly one canonical `pnpm verify`
+on the final working tree. Do not run another retrospective after that verify.
 
 Use `pnpm verify:verbose` when live child output is needed. Inspect browser/native
 runtime only when the change affects that runtime. If final verification finds
 a normal implementation failure, fix it, rerun its focused check, and rerun
-final verification. If it reveals only a new non-blocking agent-process lesson,
-defer it to a later deliberate retrospective/harness pass rather than starting
-another self-improvement cycle.
+final verification. After a passing final verify, keep review lightweight:
+check status, credential/security outcomes, and whitespace rather than
+re-reading a generated full diff for new semantic issues. `pnpm git-diff` may
+still generate a report for handoff/sharing; do not reread the whole report if
+the changed code and diff were already deeply reviewed. `pnpm secrets:check`
+scans changed and untracked files and is part of full `pnpm verify`, not
+`pnpm verify:changed`. If verification reveals only a new non-blocking
+agent-process lesson, defer it to a later deliberate retrospective/harness pass
+rather than starting another self-improvement cycle.
 
 ## Retrospective and self-improvement
 

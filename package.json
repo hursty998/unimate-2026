@@ -22,6 +22,7 @@
     "verify:changed": "node scripts/verify.mjs --changed",
     "verify": "node scripts/verify.mjs",
     "verify:verbose": "node scripts/verify.mjs --verbose",
+    "secrets:check": "node scripts/secrets-check.mjs",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:status": "supabase status",

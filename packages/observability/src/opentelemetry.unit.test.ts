@@ -38,7 +38,26 @@ test("records a successful span with provider-neutral attributes and status", as
   assert.equal(span?.name, "foundation.operation");
   assert.equal(span?.attributes["operation.kind"], "test");
   assert.equal(span?.attributes["fixture"], "synthetic");
-  assert.equal(span?.status.code, SpanStatusCode.OK);
+  assert.equal(span?.status.code, SpanStatusCode.UNSET);
+});
+
+test("preserves a span status explicitly set by the operation", async () => {
+  const { exporter, provider, telemetry } = createTelemetry();
+
+  await telemetry.runInSpan({
+    name: "foundation.explicit-status",
+    operation(span) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: "operation explicitly marked failure",
+      });
+    },
+  });
+  await provider.forceFlush();
+
+  const [span] = exporter.getFinishedSpans();
+  assert.equal(span?.status.code, SpanStatusCode.ERROR);
+  assert.equal(span?.status.message, "operation explicitly marked failure");
 });
 
 test("records exceptions and error status while preserving the original failure", async () => {

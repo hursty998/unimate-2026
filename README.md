@@ -69,7 +69,7 @@ do not put server secrets in Expo public variables.
 - `pnpm verify:changed` runs formatting, tooling tests, and affected workspace
   checks for fast feedback; it does not run provider/database integrations.
 - `pnpm verify` runs complete repository validation, including local integration
-  checks.
+  checks and the changed-file credential scan (`pnpm secrets:check`).
 - `pnpm verify:verbose` runs the complete suite and streams child output live.
 
 ## Architecture documentation

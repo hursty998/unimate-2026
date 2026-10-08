@@ -30,6 +30,16 @@ export interface PushMessage {
   readonly data?: Readonly<Record<string, PushDataValue>>;
 }
 
+declare const pushSubmissionHandleBrand: unique symbol;
+
+export type PushSubmissionHandle = string & {
+  readonly [pushSubmissionHandleBrand]: "PushSubmissionHandle";
+};
+
+export interface PushSubmission {
+  readonly handle: PushSubmissionHandle;
+}
+
 export interface PushProvider {
-  send(message: PushMessage): Promise<void>;
+  send(message: PushMessage): Promise<PushSubmission>;
 }

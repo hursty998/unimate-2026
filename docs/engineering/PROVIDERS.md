@@ -56,17 +56,22 @@ envelope, idempotent handlers, retry/DLQ policy, worker, and outbox dispatch.
 
 `@unimate/notifications` exposes only `PushProvider.send` for one destination
 token and a title/body/JSON payload. `@unimate/notifications/expo` uses native
-`fetch` and Expo's documented HTTP endpoint. Success does not expose an Expo
-ticket ID. `PushProviderError` maps invalid tokens, transient failures, and
-permanent provider rejections without retaining or logging provider payloads.
-There is no token registration, notification persistence, batching, or
-orchestration in this phase.
+`fetch` and Expo's documented HTTP endpoint. A successful send returns a
+provider-neutral opaque submission handle containing the ticket identifier;
+the later receipt-checking worker/orchestration phase needs it to query the
+eventual Expo receipt. Receipt polling is not implemented here.
+`PushProviderError` maps invalid tokens, transient failures, and permanent
+provider rejections without retaining or logging provider payloads. There is
+no token registration, notification persistence, batching, or orchestration
+in this phase.
 
 ## Telemetry
 
 `@unimate/observability` exposes `TelemetryProvider.runInSpan`, using standard
 OpenTelemetry `Span` concepts for attributes, exceptions, and success/failure
-status. `@unimate/observability/opentelemetry` uses `@opentelemetry/api`;
+status. Successful completion leaves status UNSET unless the operation sets
+one; thrown failures are recorded and marked ERROR.
+`@unimate/observability/opentelemetry` uses `@opentelemetry/api`;
 tests use the in-memory exporter from `@opentelemetry/sdk-trace-base`. No
 collector, exporter, metrics, or hosted observability backend is configured.
 
@@ -83,6 +88,7 @@ Provider credentials are unrelated to the Phase 5 JWKS verifier.
 Supabase is available, applies pending migrations with `--local`, and runs the
 Storage/Queues integration tests. It never links to or modifies a hosted
 project. Full `pnpm verify` runs those deterministic local integrations;
+it also runs `pnpm secrets:check` over changed and untracked repository files.
 `pnpm verify:changed` remains provider-integration-free. Push tests use a
 mocked `fetch`, and telemetry tests use an in-memory exporter.
 

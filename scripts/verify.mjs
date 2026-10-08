@@ -20,6 +20,7 @@ const maximumTailCharacters = 20_000;
 const fullSteps = [
   { name: "format", command: "pnpm", args: ["format:check"] },
   { name: "tooling tests", command: "pnpm", args: ["test:tooling"] },
+  { name: "secret check", command: "pnpm", args: ["secrets:check"] },
   {
     name: "lint/typecheck/build/tests",
     command: "pnpm",

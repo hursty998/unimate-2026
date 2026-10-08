@@ -1,6 +1,6 @@
 # Phase 7 — Provider Adapter Foundation
 
-**Status:** Complete
+**Status:** Complete; targeted hardening follow-up recorded below.
 **Scope:** Storage, queue, push delivery, and telemetry provider seams only.
 
 ## Verified starting state
@@ -27,7 +27,7 @@
 | Storage local test | Declare the private `phase7-provider-tests` bucket in supported `supabase/config.toml`. When an already-running stack has not loaded the config, the test harness creates the bucket with the supported local Storage HTTP API and deletes it in `finally`; it does not edit Storage-owned tables or restart the shared stack. Round-trip a unique synthetic object key through signed upload/read permissions and delete the object in `finally`. |
 | Queue              | Use `pg` 8.23.1 and documented `pgmq` functions only inside the Supabase adapter. The port supports enqueue, visibility-bounded receive, and acknowledgement. A failed/unacknowledged delivery becomes visible again after its visibility timeout; no retry policy or hidden retry is added. Phase 9 owns the versioned/Zod-validated job envelope, retry policy, dead-letter flow, worker, and outbox dispatch.                                   |
 | Queue local test   | Add a Supabase provider migration enabling the available pgmq extension (not a Prisma migration and no `app` schema objects). Create a unique synthetic queue with documented `pgmq.create`, prove send/read/delete semantics, and drop the queue in `finally`. The command applies only local migrations.                                                                                                                                         |
-| Push               | Define a single-destination server-side delivery port. Use native `fetch` against Expo's documented `https://exp.host/--/api/v2/push/send` endpoint; no Expo SDK, no batching, no live push, and no provider ticket type in the port. Map invalid-token, rejection, and transient-provider failures to UniMate-owned outcomes.                                                                                                                     |
+| Push               | Define a single-destination server-side delivery port. Use native `fetch` against Expo's documented `https://exp.host/--/api/v2/push/send` endpoint; no Expo SDK, no batching, and no live push. Return the success ticket ID only in an opaque UniMate submission handle for later receipt checking. Map invalid-token, rejection, and transient-provider failures to UniMate-owned outcomes.                                                     |
 | Telemetry          | Keep the small UniMate `TelemetryProvider` seam on standard OpenTelemetry span concepts. Production dependency: `@opentelemetry/api` 1.9.1. Tests use `@opentelemetry/sdk-trace-base` 2.12.0 with its in-memory exporter/processor; no collector or hosted exporter is configured.                                                                                                                                                                 |
 | Dependency policy  | Exact-pin only the OpenTelemetry packages above and `pg` 8.23.1 in the queue package. Do not add `@supabase/supabase-js`, `expo-server-sdk`, or native dependencies; Node `fetch` and the existing PostgreSQL driver are sufficient. The registry currently reports `@supabase/supabase-js` 2.117.3, but it is not needed.                                                                                                                         |
 | Secrets            | Provider adapters receive explicit server-only options. Local integration obtains current Supabase values in memory from `supabase status -o json`; never serialize them to logs/files or expose them through `EXPO_PUBLIC_*`. JWT verification remains public-JWKS-only.                                                                                                                                                                          |
@@ -68,10 +68,12 @@
   owns versioned job schemas and validation.
 - `PushProvider.send` handles one provider-neutral token/title/body/data
   message. The Expo adapter uses `fetch` and maps invalid-token, transient,
-  and rejected failures to `PushProviderError`; it does not expose ticket IDs
-  or provider response objects.
+  and rejected failures to `PushProviderError`. A successful submission must
+  include a non-empty receipt ID, returned only as an opaque
+  `PushSubmissionHandle`; receipt polling remains deferred.
 - `TelemetryProvider.runInSpan` accepts standard OpenTelemetry attributes and
-  spans, records exceptions, maps success/failure status, and always ends the
+  spans, records exceptions, leaves successful status UNSET unless the
+  operation changes it, marks thrown failures ERROR, and always ends the
   span. The implementation uses the OTel API with an in-memory SDK exporter
   only in tests.
 
@@ -169,3 +171,33 @@ records/preferences/token registration/orchestration, worker, business jobs,
 versioned job envelope, retry/DLQ engine, outbox dispatcher, email provider,
 real telemetry exporter/backend, hosted provider operation, native build, or
 EAS build is in scope.
+
+## Targeted hardening follow-up
+
+- `PushProvider.send` now returns a branded, provider-neutral
+  `PushSubmissionHandle`; malformed successful Expo tickets without a trimmed,
+  non-empty ID fail closed. Receipt polling remains deferred.
+- Successful telemetry spans retain UNSET status unless the operation sets a
+  status; thrown errors are recorded and marked ERROR.
+- Queue JSON cloning safely defines own properties such as `__proto__`, and
+  PGMQ rows are validated for positive PostgreSQL `bigint` IDs, positive safe
+  delivery counts, and JSON payloads before returning from the port.
+- Push payload validation is cycle-safe and rejects sparse arrays,
+  non-finite numbers, and non-plain values. The local storage fixture rejects
+  an existing public bucket.
+- Full `pnpm verify` includes a deterministic `pnpm secrets:check`; the
+  changed-files scan also checks the exact current local Supabase key when the
+  local stack is available. Its pure pattern detection has tooling tests;
+  `verify:changed` remains integration-free.
+- Agent workflow now places deep changed-code/diff review before retrospective
+  and final verification. The retrospective Skill requires a recurring-friction
+  review before deciding no durable improvement is warranted.
+- `supabase/AGENTS.md` documents the repository-configured MCP on port 55321,
+  local status discovery, and the non-retry fallback. `.mcp.json` is tracked,
+  contains only the local endpoint, and matches `supabase/config.toml`.
+- Retrospective: the largest recurring friction was repeating ad-hoc
+  credential scans and performing semantic diff review after the final verify.
+  The canonical `pnpm secrets:check` and pre-verify deep-review/post-verify
+  lightweight-check workflow now address those durable issues. The failed
+  TOML-parser probe in this pass was a one-off and did not warrant a dependency
+  or extra tooling.

@@ -26,9 +26,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
       spanOptions,
       async (span): Promise<T> => {
         try {
-          const result = await operation(span);
-          span.setStatus({ code: SpanStatusCode.OK });
-          return result;
+          return await operation(span);
         } catch (error) {
           span.recordException(error instanceof Error ? error : String(error));
           span.setStatus({ code: SpanStatusCode.ERROR });
