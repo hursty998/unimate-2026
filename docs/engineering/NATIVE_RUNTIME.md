@@ -13,21 +13,14 @@ This document is the inventory and change policy for the Expo native runtime in
 - Development client: `expo-dev-client` 57.0.19.
 - Expo Router runs from `src/app`; route files only compose feature screens.
 - The TypeScript config extends Expo's base and mirrors the strict options from
-  the [shared base config](../../packages/typescript-config/base.jsonc).
-  Extending that workspace file directly made Expo's Metro tsconfig resolver
-  fail because it is outside the mobile project root. Expo's current alias
-  guide requires `baseUrl` for Metro; TypeScript 6.0 deprecates that option, so
-  `ignoreDeprecations: "6.0"` suppresses only that diagnostic while retaining
-  strict type checking.
+  the [shared base config](../../packages/typescript-config/base.jsonc). Expo's
+  current alias guide requires `baseUrl` for Metro; TypeScript 6.0 deprecates
+  that option, so `ignoreDeprecations: "6.0"` suppresses only that diagnostic
+  while retaining strict type checking.
 - CNG is used. `apps/mobile/ios` and `apps/mobile/android` are generated from
   app config, config plugins, and installed native modules; both directories
   are ignored and must not be committed or maintained manually.
-- A small local config plugin quotes the generated React Native bundle-script
-  path. This is required because the current workspace path contains spaces;
-  the change is applied during CNG and does not hand-maintain an Xcode project.
-- The exact-pinned Expo Constants package has a small committed pnpm patch
-  that quotes its CocoaPods script path and `PROJECT_DIR` check for the same
-  space-containing workspace path.
+- The repository is currently located at `/Users/henry/Documents/Projects/UniMates-2026/unimate-2026`. Standard SDK 57 CNG and local builds work from this no-space path without repository-specific shell-path workarounds.
 - `runtimeVersion.policy` is `fingerprint`. No EAS Update URL, channel, OTA
   publishing, or update credentials are configured in Phase 2.
 - The flat-gray app icon/splash asset is a replaceable placeholder, not final

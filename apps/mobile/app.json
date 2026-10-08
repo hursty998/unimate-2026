@@ -25,7 +25,6 @@
     },
     "plugins": [
       "expo-router",
-      "./plugins/with-space-safe-bundle-script",
       [
         "expo-dev-client",
         {
