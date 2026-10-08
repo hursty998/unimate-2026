@@ -1,39 +1,77 @@
 # UniMate
 
-UniMate is a university community application. This repository is currently building its engineering foundation; application frameworks and product functionality have not been scaffolded yet.
+UniMate is a university community application. This repository establishes its
+engineering foundation; product-domain features are not yet implemented.
 
-## Prerequisites
+## Current engineering foundation
 
-- Node.js `24.14.0` (see [.node-version](./.node-version))
-- pnpm `10.33.0` (pinned in [package.json](./package.json))
+- Expo SDK 57 mobile application for iOS, Android, and web.
+- NestJS 12 API using Fastify.
+- Shared, contracts-first oRPC and Zod API definitions.
+- PostgreSQL with Prisma ORM 7; Prisma owns application migrations in schema
+  `app`.
+- Supabase is the initial local/development infrastructure provider and Auth
+  service. Mobile uses Supabase for Auth only; application data goes through
+  the API.
+- The API verifies asymmetric Supabase JWTs locally and maps provider identity
+  to a provider-neutral UniMate User. Authorization uses exact capabilities
+  and scoped relational grants; it is deny-by-default.
+- pnpm workspaces and Turborepo coordinate package tasks.
 
-## Commands
+## Repository map
+
+- [`apps/mobile/`](./apps/mobile/) — Expo application.
+- [`apps/api/`](./apps/api/) — NestJS/Fastify API.
+- [`apps/worker/`](./apps/worker/) — reserved workspace; no worker implementation
+  yet.
+- [`packages/contracts/`](./packages/contracts/) — shared API contracts.
+- [`packages/database/`](./packages/database/) — Prisma schema, migrations, and
+  database tooling.
+- [`packages/auth/`](./packages/auth/) — provider-neutral token-verification
+  contract and Supabase JWT adapter.
+- [`packages/authorization/`](./packages/authorization/) — capability catalogue.
+- [`packages/eslint-config/`](./packages/eslint-config/) and
+  [`packages/typescript-config/`](./packages/typescript-config/) — shared tooling.
+- [`docs/engineering/`](./docs/engineering/) — canonical engineering guidance.
+- [`docs/exec-plans/`](./docs/exec-plans/) — active and completed foundation plans.
+- [`.agents/skills/`](./.agents/skills/) — installed vendor Skills and
+  UniMate-owned agent workflows.
+
+## Getting started
+
+Use Node.js `24.14.0` and pnpm `10.33.0` from
+[`.node-version`](./.node-version) and the root `package.json`.
+
+From the repository root:
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
+pnpm db:start
+pnpm db:migrate
+pnpm db:seed
 pnpm dev
-pnpm build
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm format
-pnpm format:check
-pnpm verify:changed
-pnpm verify
-pnpm git-diff
 ```
 
-Build, typecheck, test, and development tasks will gain work as the application workspaces are implemented.
+Before database/API/mobile commands, configure the required local environment
+files from their examples. Follow [Database](./docs/engineering/DATABASE.md) and
+[Authentication](./docs/engineering/AUTHENTICATION.md) for the safe local setup;
+do not put server secrets in Expo public variables.
 
-`pnpm git-diff` writes a review report to `docs/generated/git-diff.md`, including repository status, staged and unstaged tracked diffs, and full additions for untracked non-ignored text files. Binary and unreadable untracked files are listed without rendering their contents. The report may include credentials, tokens, personal data, or other sensitive information; review it before sharing externally. The generated report is ignored by Git and the command does not stage files.
+## Verification
 
-## Environment files
+- `pnpm verify:changed` runs formatting, tooling tests, and affected workspace
+  checks for fast feedback; it does not run provider/database integrations.
+- `pnpm verify` runs complete repository validation, including local integration
+  checks.
+- `pnpm verify:verbose` runs the complete suite and streams child output live.
 
-Commit `.env.example` when a real configuration contract exists. Local `.env` and `.env.*` files are ignored; never add real credentials to Git. Keep future Expo-public variables separate from server-only secrets.
+## Architecture documentation
 
-## Engineering references
-
-- [Agent guide](./AGENTS.md)
 - [Architecture](./docs/engineering/ARCHITECTURE.md)
 - [Engineering principles](./docs/engineering/ENGINEERING_PRINCIPLES.md)
-- [Foundation implementation plan](./docs/engineering/FOUNDATION_IMPLEMENTATION_PLAN.md)
+- [Database](./docs/engineering/DATABASE.md)
+- [Authentication](./docs/engineering/AUTHENTICATION.md)
+- [Authorization](./docs/engineering/AUTHORIZATION.md)
+- [Native runtime](./docs/engineering/NATIVE_RUNTIME.md)
+- [Agent workflow](./docs/engineering/AGENT_WORKFLOW.md)
+- [Agent guide](./AGENTS.md)

@@ -244,6 +244,16 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
       ].sort(),
     );
 
+    const migrationHistorySchemas = await prisma.$queryRaw<
+      Array<{ schemaName: string }>
+    >`
+      SELECT table_schema AS "schemaName"
+      FROM information_schema.tables
+      WHERE table_name = '_prisma_migrations'
+      ORDER BY table_schema
+    `;
+    assert.deepEqual(migrationHistorySchemas, [{ schemaName: "app" }]);
+
     const providerSchemas = await prisma.$queryRaw<
       Array<{ schemaName: string }>
     >`

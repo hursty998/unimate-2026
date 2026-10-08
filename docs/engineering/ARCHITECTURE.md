@@ -301,11 +301,16 @@ Provider-specific Supabase code belongs only in appropriate adapters/bootstrap l
 
 # 11. Authentication
 
-Authentication initially uses Supabase Auth.
+Authentication initially uses Supabase Auth. Phase 5 established its seam
+through `AccessTokenVerifier`, the Supabase asymmetric-JWT adapter, a
+provider-neutral verified identity, `AuthIdentity` to UniMate `User` mapping,
+and the mobile Auth adapter. Treat these existing pieces as the identity-provider
+abstraction. Phase 7 should review them, not create a second `IdentityProvider`
+or `SupabaseIdentityProvider`; extend the seam only if a real missing operation
+emerges.
 
-Feature code should consume provider-neutral identity/session concepts.
-
-The provider implementation may use Supabase-specific SDKs.
+Feature code should consume provider-neutral identity/session concepts. The
+provider implementation may use Supabase-specific SDKs.
 
 The architecture must distinguish:
 
@@ -435,21 +440,20 @@ Resource-level business authorisation belongs deeper than transport guards.
 
 Where realistic provider replacement is required, use a narrow port.
 
-Examples:
+Examples for remaining provider work:
 
 ```text
-IdentityProvider
 ObjectStorage
 JobQueue
 PushProvider
-EmailProvider
 TelemetryProvider
 ```
 
+The Phase 7 provider work concerns genuinely unimplemented seams: object
+storage, job queue, push, and telemetry. Email is deferred until it is required.
 Initial implementations may include:
 
 ```text
-SupabaseIdentityProvider
 SupabaseObjectStorage
 SupabaseJobQueue
 ExpoPushProvider

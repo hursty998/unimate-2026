@@ -147,6 +147,12 @@ Before proposing a new native package, an agent must:
 5. State whether the native fingerprint changes and whether a development
    build must be rebuilt; native runtime changes require a rebuild.
 
+Run `pnpm --filter @unimate/mobile exec expo install --check` during this
+dependency workflow. It normally fetches SDK version recommendations from Expo,
+so it is not part of canonical `pnpm verify`. The installed CLI's
+`EXPO_OFFLINE=1` fallback uses local SDK metadata but warns that offline
+dependency validation is unreliable; do not treat it as equivalent evidence.
+
 The import boundary preventing mobile access to database/server code is
 enforced by the central ESLint configuration. More specific provider-adapter
 rules should be extended when those implementations are introduced.

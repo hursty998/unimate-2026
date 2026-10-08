@@ -410,9 +410,16 @@ Ensure replaceable infrastructure is isolated before product features begin usin
 
 ## Work
 
-Define narrow provider-neutral ports for:
+Phase 5 already established the identity/Auth seam through `AccessTokenVerifier`,
+the Supabase asymmetric-JWT adapter, provider-neutral verified identity,
+`AuthIdentity` mapping to UniMate `User`, and the mobile Auth adapter. Review and
+reuse this as the existing identity-provider abstraction. Do not add a second
+`IdentityProvider` or `SupabaseIdentityProvider`; extend the existing seam only
+if a real missing operation emerges.
 
-- IdentityProvider;
+Define narrow provider-neutral ports for the remaining, genuinely unimplemented
+provider seams:
+
 - ObjectStorage;
 - JobQueue;
 - PushProvider;
@@ -420,11 +427,11 @@ Define narrow provider-neutral ports for:
 
 Add initial provider implementations:
 
-- Supabase Auth;
 - Supabase Storage;
 - Supabase Queues;
 - Expo Push;
 - OpenTelemetry-compatible observability.
+- Email only if/when a concrete requirement exists.
 
 Provider SDK imports must be restricted mechanically where practical.
 
@@ -567,14 +574,19 @@ Make implementation failures machine-readable and cheap to repair.
 
 ## Work
 
-Finish:
+Build on the harness already established by Phase 6.5:
 
 ```text
 pnpm verify:changed
 pnpm verify
 ```
 
-Fast verification should include relevant:
+The current repository already has the concise full/changed/verbose verify
+runner, child logs with bounded failure tails, architecture checks, a
+root/nested `AGENTS.md` hierarchy, and the UniMate retrospective Skill. Do not
+recreate those foundations.
+
+Extend the existing workflow with relevant:
 
 - formatting;
 - lint;
@@ -583,22 +595,31 @@ Fast verification should include relevant:
 - unit tests;
 - contract checks.
 
-Full verification should additionally include:
+Add future coverage where the repository justifies it:
 
-- clean database migration/reset check;
 - integration tests;
 - API tests;
 - queue/outbox tests;
 - web Playwright smoke test;
 - native/build validation where practical.
+- periodic instruction and documentation pruning/freshness checks;
+- test/debt quality reporting and machine-readable verification output if useful;
+- further deterministic architecture checks as stable patterns emerge;
+- agent evaluations after enough representative real tasks exist.
 
-Add architecture restrictions with actionable error messages.
+Before production deployment packaging, introduce build-specific TypeScript
+configs where needed to exclude unit/integration tests and test-support code from
+runtime artifacts without reducing typechecking or test coverage.
 
-Add deterministic seed/test accounts.
+Hooks remain a later option only for deterministic lifecycle/security events
+when reliable tooling support exists; semantic retrospective remains in the
+Skill.
 
 ## Acceptance
 
-An agent can make a small change, run one command, receive useful failures, repair them and reach green.
+An agent can use the existing fast/full verification commands and future
+additions to receive useful failures, repair them, and reach green without
+duplicating the Phase 6.5 harness.
 
 ---
 
@@ -697,6 +718,10 @@ Configure GitHub Actions for:
 - relevant generated-file consistency.
 
 Do not trigger expensive EAS builds for every commit by default.
+
+Before production deployment packaging, exclude test and test-support code from
+runtime artifacts with build-specific TypeScript configuration where necessary;
+retain complete typechecking and test coverage.
 
 ## Acceptance
 

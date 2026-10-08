@@ -30,7 +30,7 @@ Prisma CLI, Client, and PostgreSQL adapter are exact-pinned to stable Prisma ORM
 
 ## Migrations, seeds, and reset
 
-Prisma schema and committed migrations live under `packages/database/prisma/`. Create intentional local migrations with `pnpm db:migrate -- --name <descriptive_name>`; deployment/CI applies committed migrations with `pnpm db:migrate:deploy`. Never use `prisma db push` for application schema changes.
+Prisma schema and committed migrations live under `packages/database/prisma/`. Create intentional local migrations with `pnpm db:migrate --name <descriptive_name>`; deployment/CI applies committed migrations with `pnpm db:migrate:deploy`. Never use `prisma db push` for application schema changes.
 
 Prisma 7 seeding is explicit. `pnpm db:seed` is idempotent and creates only synthetic development fixtures. `pnpm db:reset` is a destructive, loopback-only application reset: it uses `prisma migrate reset`, then explicitly runs the seed. Before either operation, it verifies that runtime and direct URLs use the same normalized effective hostname, port, and database name, including PostgreSQL `host`/`port` query overrides, and that the direct URL selects `app`. It rejects service/host-address overrides and does not equate different loopback hostname aliases. It must reset only `app`, preserving Supabase-owned schemas. It is not `supabase db reset`; the latter resets the whole local provider database and is not the application reset workflow.
 

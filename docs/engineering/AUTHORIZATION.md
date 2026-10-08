@@ -53,6 +53,10 @@ grant or a matching Role assignment plus Role mapping. Catalogue scope,
 assignment scope, Role scope, and requested University must agree. No permission
 state is copied into JWT claims, Supabase metadata, or a cache.
 
+PostgreSQL enforces `RoleAssignment(roleId, scopeKind) → Role(id, scopeKind)`
+with a composite foreign key. The service also filters by the Role scope at
+runtime as defense in depth.
+
 The Prisma-owned `app` schema is backend-only. Application authorisation is
 enforced by the Nest/application layer, not by Supabase claims or PostgreSQL RLS.
 No user, seed fixture, authenticated session, or affiliated University receives

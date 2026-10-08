@@ -1,10 +1,13 @@
 import { spawn } from "node:child_process";
 import { Buffer } from "node:buffer";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { performance } from "node:perf_hooks";
+import { StringDecoder } from "node:string_decoder";
+import { finished } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(
@@ -102,6 +105,21 @@ function getExitCode({ code, signal, error }) {
   return error ? 127 : 1;
 }
 
+function retainTail(current, addition) {
+  const lines = `${current}${addition}`.split(/\r?\n/);
+  let tail = lines.slice(-maximumTailLines).join("\n");
+
+  if (tail.length > maximumTailCharacters) {
+    tail = tail.slice(-maximumTailCharacters);
+    const firstCompleteLine = tail.indexOf("\n");
+    if (firstCompleteLine !== -1) {
+      tail = tail.slice(firstCompleteLine + 1);
+    }
+  }
+
+  return tail;
+}
+
 async function runStep(
   step,
   { cwd, logDirectory, verbose, stdout, stderr },
@@ -112,70 +130,106 @@ async function runStep(
     logDirectory,
     `${String(index + 1).padStart(2, "0")}-${slug}.log`,
   );
-  const chunks = [];
+  const logStream = createWriteStream(logPath, { flags: "wx" });
   const child = spawn(step.command, step.args, {
     cwd,
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
   });
-
-  child.stdout.on("data", (chunk) => {
-    chunks.push(Buffer.from(chunk));
-    if (verbose) {
-      stdout.write(chunk);
-    }
+  let tail = "";
+  let logWriteError;
+  let childError;
+  const logCompletion = finished(logStream);
+  logCompletion.catch((error) => {
+    logWriteError = error;
+    child.kill();
   });
-  child.stderr.on("data", (chunk) => {
-    chunks.push(Buffer.from(chunk));
-    if (verbose) {
-      stderr.write(chunk);
-    }
+
+  for (const [source, target] of [
+    [child.stdout, stdout],
+    [child.stderr, stderr],
+  ]) {
+    const decoder = new StringDecoder("utf8");
+    let logBlocked = false;
+    let targetBlocked = false;
+    const resumeWhenDrained = () => {
+      if (!logBlocked && !targetBlocked) {
+        source.resume();
+      }
+    };
+
+    source.on("data", (chunk) => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      tail = retainTail(tail, decoder.write(buffer));
+
+      if (!logWriteError && !logStream.destroyed) {
+        if (!logStream.write(buffer)) {
+          logBlocked = true;
+          source.pause();
+          logStream.once("drain", () => {
+            logBlocked = false;
+            resumeWhenDrained();
+          });
+        }
+      }
+
+      if (verbose && !target.write(buffer)) {
+        targetBlocked = true;
+        source.pause();
+        target.once("drain", () => {
+          targetBlocked = false;
+          resumeWhenDrained();
+        });
+      }
+    });
+
+    source.once("end", () => {
+      tail = retainTail(tail, decoder.end());
+    });
+  }
+
+  child.once("error", (error) => {
+    childError = error;
   });
 
   const processResult = await new Promise((resolve) => {
-    let settled = false;
-
-    child.once("error", (error) => {
-      if (!settled) {
-        settled = true;
-        resolve({ code: null, signal: null, error });
-      }
-    });
     child.once("close", (code, signal) => {
-      if (!settled) {
-        settled = true;
-        resolve({ code, signal, error: undefined });
-      }
+      resolve({ code, signal, error: childError });
     });
   });
 
   if (processResult.error) {
-    chunks.push(
-      Buffer.from(
-        `Could not start ${commandLabel(step.command, step.args)}: ${processResult.error.message}\n`,
-      ),
+    const message = `Could not start ${commandLabel(step.command, step.args)}: ${processResult.error.message}\n`;
+    const buffer = Buffer.from(message);
+    tail = retainTail(tail, message);
+    if (!logWriteError && !logStream.destroyed) {
+      logStream.write(buffer);
+    }
+    if (verbose) {
+      stderr.write(buffer);
+    }
+  }
+
+  logStream.end();
+  try {
+    await logCompletion;
+  } catch (error) {
+    throw new Error(
+      `Could not finish verification log ${logPath}: ${error.message}`,
+      {
+        cause: error,
+      },
     );
   }
 
-  await writeFile(logPath, Buffer.concat(chunks));
-
+  const lines = tail.split(/\r?\n/);
   return {
     ...processResult,
     exitCode: getExitCode(processResult),
     logPath,
+    tail,
+    tailLineCount: lines.length,
   };
-}
-
-function outputTail(text) {
-  let lines = text.split(/\r?\n/).slice(-maximumTailLines);
-  let tail = lines.join("\n");
-
-  if (tail.length > maximumTailCharacters) {
-    tail = tail.slice(-maximumTailCharacters);
-    lines = tail.split(/\r?\n/);
-  }
-
-  return { text: tail, lineCount: lines.length };
 }
 
 export async function runVerification(
@@ -208,15 +262,13 @@ export async function runVerification(
       continue;
     }
 
-    const log = await readFile(result.logPath, "utf8");
-    const tail = outputTail(log);
     const command = commandLabel(step.command, step.args);
 
     stdout.write(
-      `\n--- Failure output (last ${tail.lineCount} lines, bounded) ---\n`,
+      `\n--- Failure output (last ${result.tailLineCount} lines, bounded) ---\n`,
     );
-    stdout.write(tail.text);
-    if (!tail.text.endsWith("\n")) {
+    stdout.write(result.tail);
+    if (!result.tail.endsWith("\n")) {
       stdout.write("\n");
     }
     stdout.write(

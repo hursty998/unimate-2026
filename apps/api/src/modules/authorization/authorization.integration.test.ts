@@ -5,6 +5,7 @@ import { AuthorizationScopeKinds, Capabilities } from "@unimate/authorization";
 import { DatabaseClientService } from "../../infrastructure/database/database.module.js";
 import type { AuthenticatedPrincipal } from "../auth/authenticated-principal.js";
 import { AuthorizationService } from "./authorization.service.js";
+import { TestOnlyOwnedDraftResourceService } from "../../test-support/owned-draft-resource-service.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
 
@@ -20,6 +21,15 @@ function isUniqueConstraintViolation(error: unknown): boolean {
     error !== null &&
     "code" in error &&
     error.code === "P2002"
+  );
+}
+
+function isForeignKeyConstraintViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2003"
   );
 }
 
@@ -128,6 +138,26 @@ test("AuthorizationService resolves exact grants and scoped denials in PostgreSQ
           definition.includes("UNIVERSITY") &&
           definition.includes("university_id"),
       ),
+    );
+
+    const roleScopeForeignKeys = await database.client.$queryRaw<
+      Array<{ definition: string }>
+    >`
+      SELECT pg_get_constraintdef(constraint_row.oid) AS definition
+      FROM pg_constraint AS constraint_row
+      WHERE constraint_row.connamespace = 'app'::regnamespace
+        AND constraint_row.contype = 'f'
+        AND constraint_row.conrelid = 'app.role_assignments'::regclass
+        AND constraint_row.confrelid = 'app.roles'::regclass
+    `;
+    assert.equal(roleScopeForeignKeys.length, 1);
+    assert.ok(
+      roleScopeForeignKeys[0]?.definition
+        .replaceAll('"', "")
+        .replace(/\s+/g, " ")
+        .includes(
+          "FOREIGN KEY (role_id, scope_kind) REFERENCES app.roles(id, scope_kind)",
+        ),
     );
 
     const universityForeignKeys = await database.client.$queryRaw<
@@ -399,14 +429,18 @@ test("AuthorizationService resolves exact grants and scoped denials in PostgreSQ
         capability: Capabilities.UNIVERSITY_AUTHORIZATION_MANAGE,
       },
     });
-    await database.client.roleAssignment.create({
-      data: {
-        userId: mismatchedRoleActor.userId,
-        roleId: platformRole.id,
-        scopeKind: "UNIVERSITY",
-        universityId: universityA.id,
-      },
-    });
+    await assert.rejects(
+      () =>
+        database.client.roleAssignment.create({
+          data: {
+            userId: mismatchedRoleActor.userId,
+            roleId: platformRole.id,
+            scopeKind: "UNIVERSITY",
+            universityId: universityA.id,
+          },
+        }),
+      isForeignKeyConstraintViolation,
+    );
     assert.equal(
       await service.can(
         mismatchedRoleActor.principal,
@@ -605,6 +639,73 @@ test("AuthorizationService resolves exact grants and scoped denials in PostgreSQ
       });
       await database.client.university.deleteMany({
         where: { id: { in: universityIds } },
+      });
+    } finally {
+      await database.onModuleDestroy();
+    }
+  }
+});
+
+test("feature-local resource policy can deny an actor with a coarse capability", async () => {
+  const database = new DatabaseClientService(databaseUrl);
+  const authorization = new AuthorizationService(database);
+  const resourceService = new TestOnlyOwnedDraftResourceService(authorization);
+  const suffix = randomUUID();
+  const userIds: string[] = [];
+
+  try {
+    const user = await database.client.user.create({ data: {} });
+    userIds.push(user.id);
+    const principal: AuthenticatedPrincipal = {
+      provider: "SUPABASE",
+      providerSubject: `phase6-resource-policy:${suffix}`,
+    };
+    await database.client.authIdentity.create({
+      data: {
+        provider: principal.provider,
+        providerSubject: principal.providerSubject,
+        userId: user.id,
+      },
+    });
+    await database.client.capabilityAssignment.create({
+      data: {
+        userId: user.id,
+        capability: Capabilities.PLATFORM_AUTHORIZATION_MANAGE,
+        scopeKind: "PLATFORM",
+        universityId: null,
+      },
+    });
+
+    assert.equal(
+      await authorization.can(
+        principal,
+        Capabilities.PLATFORM_AUTHORIZATION_MANAGE,
+        { kind: "PLATFORM" },
+      ),
+      true,
+    );
+
+    let operationProceeded = false;
+    await assert.rejects(
+      () =>
+        resourceService.updateDraft(
+          principal,
+          user.id,
+          {
+            ownerId: `another-user:${suffix}`,
+            lifecycle: "DRAFT",
+          },
+          () => {
+            operationProceeded = true;
+          },
+        ),
+      /Feature-local resource policy denied/,
+    );
+    assert.equal(operationProceeded, false);
+  } finally {
+    try {
+      await database.client.user.deleteMany({
+        where: { id: { in: userIds } },
       });
     } finally {
       await database.onModuleDestroy();

@@ -1,5 +1,10 @@
 # Local Environment Report
 
+> **Historical Phase 0 environment snapshot.** This records the machine and
+> repository state at the start of foundation work; it is not the source of
+> truth for current repository capabilities. Use current engineering
+> documentation and [`AGENTS.md`](../../AGENTS.md) for present state.
+
 Verified: 2026-10-06
 
 ## System

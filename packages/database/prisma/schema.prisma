@@ -90,6 +90,7 @@ model Role {
   capabilities RoleCapability[]
   assignments  RoleAssignment[]
 
+  @@unique([id, scopeKind])
   @@unique([scopeKind, key])
   @@map("roles")
   @@schema("app")
@@ -114,7 +115,7 @@ model RoleAssignment {
   universityId String?                @map("university_id") @db.Uuid
   createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role         Role                   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  role         Role                   @relation(fields: [roleId, scopeKind], references: [id, scopeKind], onDelete: Cascade)
   university   University?            @relation(fields: [universityId], references: [id], onDelete: Cascade)
 
   @@index([userId, scopeKind, universityId, roleId])

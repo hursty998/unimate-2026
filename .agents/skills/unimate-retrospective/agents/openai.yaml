@@ -1,0 +1,4 @@
+interface:
+  display_name: "UniMate Retrospective"
+  short_description: "Review substantial sessions for durable improvements"
+  default_prompt: "Use $unimate-retrospective to review a substantial UniMate coding session for durable improvements."

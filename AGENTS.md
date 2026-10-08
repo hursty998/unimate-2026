@@ -1,246 +1,103 @@
 # UniMate Agent Guide
 
-This file is the entry point for coding agents working in this repository.
+This is the entry map for coding agents. Keep it short; use canonical
+engineering documents, nested guidance, and focused Skills for detail.
 
-Keep this file short. It is a map to deeper sources of truth, not a complete engineering manual.
+## Product and architecture
 
-## Read first
+UniMate is a university community application. Keep product code specific to
+UniMate and make infrastructure seams replaceable only where there is a
+realistic reason.
 
-Before making architectural or cross-cutting changes, read:
+The intended flow is:
 
-- `docs/engineering/ARCHITECTURE.md`
-- `docs/engineering/ENGINEERING_PRINCIPLES.md`
+```text
+Expo -> shared oRPC/Zod contracts -> NestJS API -> application logic -> Prisma -> PostgreSQL
+```
 
-For substantial foundation work, also read:
+## Always-on boundaries
 
-- `docs/engineering/FOUNDATION_IMPLEMENTATION_PLAN.md`
+- Mobile never imports Prisma/database internals or queries UniMate domain tables
+  directly through Supabase.
+- API changes begin with `packages/contracts`; transport handlers stay thin.
+- Every API operation declares an access posture. Business authorization is
+  enforced server-side, not only in UI code.
+- Feature/domain code does not import provider SDKs; keep them in intended
+  adapter/bootstrap locations.
+- Durable business relationships belong in relational PostgreSQL structures.
+  Use the transactional outbox for consequential asynchronous work where
+  applicable.
+- Database schema changes use committed Prisma migrations. Never use
+  `prisma db push` as the production schema workflow.
+- Do not edit generated files or bypass an architecture boundary for convenience.
+- Do not create generic frameworks or speculative product features.
 
-Read only additional documentation relevant to the task. Do not load the whole repository documentation into context without reason.
-
-## Product
-
-This repository is for UniMate.
-
-The application architecture is product-specific, but infrastructure seams should remain replaceable where there is a realistic reason to change provider.
-
-Do not prematurely generalise UniMate into a generic framework.
-
-## High-level architecture
-
-The intended dependency flow is:
-
-Expo
-→ shared oRPC/Zod contracts
-→ NestJS API
-→ application/domain logic
-→ Prisma
-→ PostgreSQL
-
-Provider-backed infrastructure includes:
-
-- authentication
-- object storage
-- background queueing
-- push notifications
-- observability
-
-Feature/domain code must depend on provider-neutral interfaces rather than provider SDKs.
-
-## Hard boundaries
-
-These rules are architectural invariants.
-
-- Mobile code must never import Prisma or database internals.
-- Mobile code must not query UniMate domain tables directly through Supabase.
-- API changes begin with the shared contract.
-- Feature/domain code must not directly depend on Supabase, Expo Push, or another provider SDK.
-- Provider SDK imports belong only in provider adapter/bootstrap locations explicitly intended for them.
-- Expo Router route files contain routing/composition, not business logic.
-- NestJS controllers/transport handlers remain thin.
-- Business authorisation must not live only in the UI.
-- Durable business relationships belong in relational PostgreSQL structures, not arbitrary JSON.
-- Background work goes through the queue abstraction.
-- Consequential database writes and resulting asynchronous work use the transactional outbox pattern where applicable.
-- Generated files are not edited manually.
-- Database schema changes use committed Prisma migrations.
-- Production schema changes must never rely on `prisma db push`.
-- New API routes must have an explicit access posture.
-- Do not bypass architecture simply because a shortcut is easier.
-
-## Source-of-truth locations
+## Sources of truth
 
 Use:
 
-- API contracts: `packages/contracts`
-- Database schema and Prisma: `packages/database`
-- Database architecture and workflow: `docs/engineering/DATABASE.md` and `packages/database/AGENTS.md`
-- Authentication infrastructure: `packages/auth`
-- Authentication architecture and lifecycle: `docs/engineering/AUTHENTICATION.md`
-- Authorisation catalogue: `packages/authorization`
-- Authorisation architecture and enforcement: `docs/engineering/AUTHORIZATION.md`
-- Object storage: `packages/storage`
-- Queue infrastructure: `packages/queue`
-- Push notifications: `packages/notifications`
-- Observability: `packages/observability`
-- Shared configuration: `packages/config`
-- Engineering architecture: `docs/engineering/ARCHITECTURE.md`
-- Engineering rules: `docs/engineering/ENGINEERING_PRINCIPLES.md`
-- Active implementation plans: `docs/exec-plans/active/`
-- Completed implementation plans: `docs/exec-plans/completed/`
+- API contracts: `packages/contracts/`
+- Database and Prisma: `packages/database/`
+- Authentication: `packages/auth/`
+- Authorization catalogue: `packages/authorization/`
+- Provider packages: `packages/storage/`, `packages/queue/`,
+  `packages/notifications/`, `packages/observability/`
+- Shared configuration: `packages/config/`
+- Architecture and principles: [`docs/engineering/`](./docs/engineering/)
+- Database rules: [`DATABASE.md`](./docs/engineering/DATABASE.md)
+- Authentication rules: [`AUTHENTICATION.md`](./docs/engineering/AUTHENTICATION.md)
+- Authorization rules: [`AUTHORIZATION.md`](./docs/engineering/AUTHORIZATION.md)
+- Native runtime inventory: [`NATIVE_RUNTIME.md`](./docs/engineering/NATIVE_RUNTIME.md)
+- Active/completed plans: `docs/exec-plans/active/` and
+  `docs/exec-plans/completed/`
 
-If the repository structure changes deliberately, update these references.
+Read relevant nested `AGENTS.md` files and engineering docs before changing a
+subsystem. For cross-cutting or architectural work, read
+[`ARCHITECTURE.md`](./docs/engineering/ARCHITECTURE.md) and
+[`ENGINEERING_PRINCIPLES.md`](./docs/engineering/ENGINEERING_PRINCIPLES.md);
+also read [`FOUNDATION_IMPLEMENTATION_PLAN.md`](./docs/engineering/FOUNDATION_IMPLEMENTATION_PLAN.md)
+for foundation work.
 
-## Package design
+## Working loop
 
-Prefer vertical business modules over large technical-layer folders.
+- Make an execution plan for substantial multi-step work; keep small changes
+  focused.
+- After adding a workspace package, dependency, or dependency edge, install
+  before building or testing it.
+- For Prisma model changes, check physical-schema assertions and snapshots; use
+  forward migrations and the documented loopback-safe reset workflow when
+  migration-from-zero validation is required.
+- Start with focused checks. Use `pnpm verify:changed` for fast affected
+  feedback and `pnpm verify` once for complete final validation. Use
+  `pnpm verify:verbose` when live child output is useful.
+- `pnpm db:test`, `pnpm auth:test`, and `pnpm authorization:test` are
+  self-contained. Their `*:prepared` forms are internal to full verification.
+- If verification fails, use its bounded failure summary; read the full
+  temporary log only when needed.
+- Review the diff, remove accidental/dead code, and report checks actually run.
 
-For example, prefer:
+For web UI changes, use the VS Code integrated browser for exploratory review
+and committed Playwright tests for durable flows. For native UI changes, use
+`agent-device` with the iOS Simulator or Android emulator and inspect the
+running app. See the mobile guidance and
+[`NATIVE_RUNTIME.md`](./docs/engineering/NATIVE_RUNTIME.md).
 
-`modules/events/...`
+## Agent workflow and retrospective
 
-over global folders such as:
+See the concise [Agent workflow](./docs/engineering/AGENT_WORKFLOW.md) for the
+normal coding loop, instruction hygiene, Skills, and hook decisions.
 
-`controllers/`
-`services/`
-`repositories/`
+For substantial implementation, refactor, or debugging work, after
+implementation and verification and before handoff, run the
+[UniMate retrospective Skill](./.agents/skills/unimate-retrospective/SKILL.md).
+Persist changes only when a lesson passes its durability gate. Skip trivial or
+documentation-only edits where no meaningful coding session occurred.
 
-Cross-feature imports should use explicit public APIs rather than reaching into another feature's internals.
+## Completion
 
-Do not create generic `utils.ts`, `helpers.ts`, or `common.ts` dumping grounds.
-
-## API contracts
-
-The canonical internal API contract uses:
-
-- oRPC
-- Zod
-
-Contracts are handwritten semantic source code.
-
-OpenAPI and similar artefacts are derived outputs.
-
-When changing an API:
-
-1. update the contract;
-2. typecheck;
-3. update server implementation;
-4. update consumers;
-5. update tests;
-6. regenerate derived documentation where configured.
-
-## Database
-
-PostgreSQL and Prisma are intentional long-term architecture choices.
-
-The PostgreSQL hosting provider may change.
-
-Do not build an artificial abstraction intended to make PostgreSQL or Prisma replaceable.
-
-Design schemas for real relational querying and integrity.
-
-## Authentication and authorisation
-
-Authentication answers:
-
-"Who is this?"
-
-Authorisation answers:
-
-"Can this actor perform this action on this resource in this context?"
-
-Do not conflate authentication, University verification, Society membership, role assignment, or permissions.
-
-Capabilities implemented by the application are code-defined.
-
-Human-friendly roles may eventually be data-defined bundles of capabilities.
-
-Resource-specific policy checks belong in the authorisation/application layer.
-
-Protected API access is deny-by-default.
-
-## Validation
-
-For code changes, run the smallest relevant verification loop first.
-
-When implemented, prefer:
-
-- `pnpm verify:changed` for fast affected checks;
-- `pnpm verify` for full repository verification.
-
-Do not claim a check passed unless it was actually run.
-
-Fix failures introduced by your change before finishing.
-
-## Coding-agent verification loop
-
-- After adding a workspace package, dependency, or dependency edge, run `pnpm install` before building or testing it.
-- Prefer focused checks during implementation; run `pnpm verify:changed` for fast affected checks and `pnpm verify` once for full validation. Use `pnpm verify:verbose` when live task output is needed.
-- If verification fails, use its final step/log summary; inspect the full temporary log only when the bounded tail is insufficient, fix and rerun that step, then rerun full verification.
-- After Prisma model/table changes, search for physical schema inventory assertions and snapshots before full verification.
-- Before broad patches against files edited earlier in a task, reread the relevant section and keep edits focused.
-- Follow repository guidance and installed skills first; consult broad vendor documentation only for a concrete unresolved version or failure question.
-- Standalone `pnpm db:test`, `pnpm auth:test`, and `pnpm authorization:test` prepare their prerequisites. Their `*:prepared` counterparts are internal to full verification and assume generation/build already passed.
-
-## UI verification
-
-For web-facing UI changes:
-
-- use the VS Code integrated browser tools when available for exploratory verification;
-- use committed Playwright tests for durable browser E2E coverage.
-
-For native mobile UI changes:
-
-- use `agent-device` against the local iOS Simulator or Android emulator when available;
-- inspect the running UI rather than relying only on code reasoning;
-- capture evidence for important flows when practical.
-
-If browser/device tooling is unavailable, state that clearly rather than claiming visual verification.
-
-## Dependencies
-
-Do not add a dependency before checking whether the repository already provides the required capability.
-
-Direct production dependencies should be deliberately versioned and committed through the lockfile.
-
-Use stable releases unless an unstable dependency is explicitly approved.
-
-For Expo SDK packages, use Expo-compatible installation commands rather than guessing versions.
-
-Adding or changing a native dependency may require a new development build.
-For Expo native dependencies, native permissions, development-client rebuild decisions, and runtime fingerprints, consult `docs/engineering/NATIVE_RUNTIME.md`.
-
-## Documentation
-
-If an architectural decision changes, update the relevant documentation in the same change.
-
-Do not duplicate the same rule across many documents unnecessarily.
-
-Prefer links to the canonical source.
-
-## Plans
-
-For a substantial multi-step task:
-
-- create or update an execution plan under `docs/exec-plans/active/`;
-- record important decisions or deviations;
-- move the plan to `docs/exec-plans/completed/` when complete.
-
-Small, obvious changes do not require a formal execution plan.
-
-## Completion standard
-
-Before finishing:
-
-- inspect the diff;
-- remove accidental/dead code;
-- run relevant verification;
-- verify architecture boundaries;
-- update documentation when required;
-- report what was changed;
-- report what was tested;
-- report anything that could not be verified.
-
-Do not silently leave known failures behind.
+Before handoff, verify relevant architecture boundaries, update directly
+affected documentation, inspect the diff, and state validation results and
+anything that could not be verified. Do not silently leave known failures.
 
 <!-- BEGIN:turborepo-agent-rules -->
 

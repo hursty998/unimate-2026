@@ -29,7 +29,9 @@ loopback local Supabase stack.
 
 Protected API operations are authenticated by default. `@Public()` is the
 explicit exception for the public system-health operation. Phase 5 establishes
-identity only; it does not implement RBAC, capabilities, or resource policies.
+identity only. Phase 6 adds coarse capability authorization; product
+resource-specific rules remain feature-local as described in
+[`AUTHORIZATION.md`](./AUTHORIZATION.md).
 
 A locally verified access token can remain valid until its expiry even after a
 provider session or refresh token is revoked. Immediate access-token
