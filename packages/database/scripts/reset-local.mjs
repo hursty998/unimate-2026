@@ -1,37 +1,9 @@
 import "dotenv/config";
-import { URL } from "node:url";
 import { spawnSync } from "node:child_process";
 import process from "node:process";
+import { validateLocalResetUrls } from "../connection-safety.mjs";
 
-for (const name of ["DATABASE_URL", "DIRECT_URL"]) {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`${name} is required for the local application reset.`);
-  }
-
-  let url;
-  try {
-    url = new URL(value);
-  } catch (cause) {
-    throw new Error(`${name} must be a valid PostgreSQL URL.`, { cause });
-  }
-
-  if (
-    !["postgres:", "postgresql:"].includes(url.protocol) ||
-    !["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname)
-  ) {
-    throw new Error(
-      `${name} must target a loopback PostgreSQL host; refusing destructive reset.`,
-    );
-  }
-
-  if (name === "DIRECT_URL" && url.searchParams.get("schema") !== "app") {
-    throw new Error(
-      "DIRECT_URL must explicitly select the Prisma-owned app schema; refusing destructive reset.",
-    );
-  }
-}
+validateLocalResetUrls(process.env["DATABASE_URL"], process.env["DIRECT_URL"]);
 
 for (const args of [
   [

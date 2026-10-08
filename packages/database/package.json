@@ -24,6 +24,7 @@
     "migrate:status": "prisma migrate status --config prisma7.config.ts",
     "seed": "prisma db seed --config prisma7.config.ts",
     "reset:local": "node scripts/reset-local.mjs",
+    "test": "node --test connection-safety.test.mjs",
     "check": "pnpm validate && pnpm generate && pnpm migrate:status",
     "test:integration": "pnpm generate && pnpm build && node --test dist/integration.test.js"
   },

@@ -1,5 +1,8 @@
 import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
+import { validateDirectUrl } from "./connection-safety.mjs";
+
+const directUrl = validateDirectUrl(process.env["DIRECT_URL"]);
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -8,6 +11,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: env("DIRECT_URL"),
+    url: directUrl,
   },
 });
