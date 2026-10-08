@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "UniMate",
+    "slug": "unimate",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "scheme": "unimate",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "com.unimate.app"
+    },
+    "android": {
+      "package": "com.unimate.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#f2f2f2",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "./plugins/with-space-safe-bundle-script",
+      [
+        "expo-dev-client",
+        {
+          "launchMode": "launcher"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow UniMate to use the camera to scan event tickets.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow UniMate to access photos you choose to share.",
+          "cameraPermission": "Allow UniMate to use the camera to take a photo.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/icon.png",
+          "imageWidth": 76
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f38b01f9-f946-4d79-a4c5-2927f2622487"
+      }
+    },
+    "owner": "hursty998"
+  }
+}

@@ -5,6 +5,7 @@
 **/coverage/
 **/.expo/
 **/.expo-shared/
+**/expo-env.d.ts
 **/ios/
 **/android/
 /apps/mobile/web-build/

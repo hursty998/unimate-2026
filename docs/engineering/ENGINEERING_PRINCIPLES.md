@@ -888,6 +888,9 @@ Before adding one:
 4. update native-runtime documentation;
 5. state whether a new development build is required.
 
+See [NATIVE_RUNTIME.md](./NATIVE_RUNTIME.md) for the mobile dependency
+inventory and rebuild policy.
+
 ---
 
 # 56. Version upgrades are deliberate
