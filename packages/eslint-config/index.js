@@ -79,9 +79,30 @@ export default tseslint.config(
                 "@orpc/nest",
                 "@orpc/server",
                 "@prisma/*",
+                "@aws-sdk/*",
+                "@aws-sdk/**",
+                "pg",
+                "pg/**",
+                "expo-server-sdk",
+                "@opentelemetry/*",
+                "@opentelemetry/**",
               ],
               message:
                 "Mobile must not import the API, NestJS, database internals, or server-only implementations.",
+            },
+            {
+              group: [
+                "@unimate/queue",
+                "@unimate/queue/**",
+                "@unimate/notifications",
+                "@unimate/notifications/**",
+                "@unimate/storage/supabase",
+                "@unimate/storage/supabase/**",
+                "@unimate/observability/opentelemetry",
+                "@unimate/observability/opentelemetry/**",
+              ],
+              message:
+                "Mobile may not import server queue, push-delivery, storage-adapter, or telemetry implementations.",
             },
           ],
         },
@@ -134,7 +155,8 @@ export default tseslint.config(
     },
   },
   {
-    files: ["apps/api/**/*.{js,jsx,ts,tsx}"],
+    files: ["apps/api/src/**/*.{js,jsx,ts,tsx}"],
+    ignores: ["apps/api/src/providers/**/*"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -146,9 +168,59 @@ export default tseslint.config(
                 "The API may depend on shared contracts, not the Expo application.",
             },
             {
+              group: [
+                "@unimate/storage/supabase",
+                "@unimate/storage/supabase/**",
+                "@unimate/queue/supabase",
+                "@unimate/queue/supabase/**",
+                "@unimate/notifications/expo",
+                "@unimate/notifications/expo/**",
+                "@unimate/observability/opentelemetry",
+                "@unimate/observability/opentelemetry/**",
+                "pg",
+                "pg/**",
+                "expo-server-sdk",
+                "@opentelemetry/sdk-*",
+                "@opentelemetry/exporter-*",
+                "@aws-sdk/*",
+                "@aws-sdk/**",
+              ],
+              message:
+                "API feature code consumes provider-neutral ports; implementation adapters and provider SDKs stay behind provider boundaries.",
+            },
+            {
               group: ["@supabase/*", "@supabase/**"],
               message:
                 "API runtime authentication must use @unimate/auth; provider SDKs are test-harness-only.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/api/src/providers/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@unimate/mobile",
+                "@unimate/mobile/**",
+                "@supabase/*",
+                "@supabase/**",
+                "@aws-sdk/*",
+                "@aws-sdk/**",
+                "pg",
+                "pg/**",
+                "expo-server-sdk",
+                "@opentelemetry/*",
+                "@opentelemetry/**",
+              ],
+              message:
+                "API composition may wire provider adapter subpaths, but vendor SDKs stay inside their provider packages.",
             },
           ],
         },
@@ -167,6 +239,20 @@ export default tseslint.config(
               group: ["@supabase/*", "@supabase/**"],
               message:
                 "Supabase JS is confined to apps/mobile/src/lib/auth; feature code uses the UniMate auth context.",
+            },
+            {
+              group: [
+                "@unimate/queue",
+                "@unimate/queue/**",
+                "@unimate/notifications",
+                "@unimate/notifications/**",
+                "@unimate/storage/supabase",
+                "@unimate/storage/supabase/**",
+                "@unimate/observability/opentelemetry",
+                "@unimate/observability/opentelemetry/**",
+              ],
+              message:
+                "Mobile may not import server queue, push-delivery, storage-adapter, or telemetry implementations.",
             },
           ],
         },
@@ -256,6 +342,138 @@ export default tseslint.config(
               ],
               message:
                 "The authorization package is the pure capability source of truth and cannot depend on frameworks, providers, database, or application packages.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/worker/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@unimate/storage/supabase",
+                "@unimate/storage/supabase/**",
+                "@unimate/queue/supabase",
+                "@unimate/queue/supabase/**",
+                "@unimate/notifications/expo",
+                "@unimate/notifications/expo/**",
+                "@unimate/observability/opentelemetry",
+                "@unimate/observability/opentelemetry/**",
+                "@supabase/*",
+                "@supabase/**",
+                "@aws-sdk/*",
+                "@aws-sdk/**",
+                "pg",
+                "pg/**",
+                "expo-server-sdk",
+                "@opentelemetry/sdk-*",
+                "@opentelemetry/exporter-*",
+              ],
+              message:
+                "Worker business code consumes provider-neutral ports; concrete provider adapters stay behind provider boundaries.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["packages/storage/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@unimate/queue",
+                "@unimate/queue/**",
+                "@unimate/notifications",
+                "@unimate/notifications/**",
+                "@unimate/observability",
+                "@unimate/observability/**",
+              ],
+              message:
+                "Object storage is an independent provider boundary and cannot depend on queue, push, or telemetry packages.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["packages/queue/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@unimate/storage",
+                "@unimate/storage/**",
+                "@unimate/notifications",
+                "@unimate/notifications/**",
+                "@unimate/observability",
+                "@unimate/observability/**",
+              ],
+              message:
+                "Queueing is an independent provider boundary and cannot depend on storage, push, or telemetry packages.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["packages/notifications/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@unimate/storage",
+                "@unimate/storage/**",
+                "@unimate/queue",
+                "@unimate/queue/**",
+                "@unimate/observability",
+                "@unimate/observability/**",
+                "expo-server-sdk",
+              ],
+              message:
+                "Push delivery is independent of storage, queue, and telemetry providers and uses the Expo HTTP API adapter.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["packages/observability/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@unimate/storage",
+                "@unimate/storage/**",
+                "@unimate/queue",
+                "@unimate/queue/**",
+                "@unimate/notifications",
+                "@unimate/notifications/**",
+              ],
+              message:
+                "Telemetry is an independent provider boundary and cannot depend on storage, queue, or push packages.",
             },
           ],
         },

@@ -38,6 +38,8 @@
     "auth:test:prepared": "node --env-file-if-exists=packages/database/.env --env-file-if-exists=apps/api/.env scripts/auth-test.mjs",
     "authorization:test": "pnpm exec turbo run build --filter=@unimate/api && pnpm authorization:test:prepared",
     "authorization:test:prepared": "node --env-file-if-exists=packages/database/.env scripts/authorization-test.mjs",
+    "providers:test": "pnpm exec turbo run build test --filter=@unimate/storage --filter=@unimate/queue --filter=@unimate/notifications --filter=@unimate/observability --output-logs=errors-only && pnpm providers:test:prepared",
+    "providers:test:prepared": "node scripts/providers-test.mjs",
     "git-diff": "node scripts/git-diff.mjs"
   },
   "devDependencies": {

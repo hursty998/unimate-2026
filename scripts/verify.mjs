@@ -60,6 +60,11 @@ const fullSteps = [
     command: "pnpm",
     args: ["authorization:test:prepared"],
   },
+  {
+    name: "provider integration",
+    command: "pnpm",
+    args: ["providers:test:prepared"],
+  },
 ];
 
 const changedSteps = [

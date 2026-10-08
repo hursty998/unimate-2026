@@ -1,5 +1,34 @@
 {
   "name": "@unimate/observability",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./opentelemetry": {
+      "types": "./dist/opentelemetry.d.ts",
+      "import": "./dist/opentelemetry.js",
+      "default": "./dist/opentelemetry.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test dist/*.unit.test.js"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "1.9.1"
+  },
+  "devDependencies": {
+    "@opentelemetry/sdk-trace-base": "2.12.0",
+    "@types/node": "24.19.1",
+    "typescript": "6.0.3"
+  }
 }

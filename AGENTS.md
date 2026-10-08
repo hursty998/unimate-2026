@@ -43,6 +43,7 @@ Use:
 - Provider packages: `packages/storage/`, `packages/queue/`,
   `packages/notifications/`, `packages/observability/`
 - Shared configuration: `packages/config/`
+- Provider boundaries: [`PROVIDERS.md`](./docs/engineering/PROVIDERS.md)
 - Architecture and principles: [`docs/engineering/`](./docs/engineering/)
 - Database rules: [`DATABASE.md`](./docs/engineering/DATABASE.md)
 - Authentication rules: [`AUTHENTICATION.md`](./docs/engineering/AUTHENTICATION.md)
