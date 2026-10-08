@@ -13,6 +13,16 @@ const localDevelopmentOrigins = [
   /^https?:\/\/\[::1\](?::\d+)?$/,
 ];
 
+const corsMethods = [
+  "GET",
+  "HEAD",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "OPTIONS",
+];
+
 export async function createApiApplication(
   config: ApiConfig = parseApiConfig(),
 ): Promise<NestFastifyApplication> {
@@ -27,7 +37,7 @@ export async function createApiApplication(
       config.nodeEnv === "production"
         ? config.corsOrigins
         : [...localDevelopmentOrigins, ...config.corsOrigins],
-    methods: ["GET", "OPTIONS"],
+    methods: corsMethods,
   });
 
   await app.init();

@@ -19,7 +19,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify:changed": "pnpm format:check && pnpm test:tooling && turbo run lint lint:root typecheck build test --affected",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm test",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm openapi:generate && pnpm test",
     "git-diff": "node scripts/git-diff.mjs"
   },
   "devDependencies": {

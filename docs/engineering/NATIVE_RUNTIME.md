@@ -150,8 +150,6 @@ rules should be extended when those implementations are introduced.
 
 ## Environment boundary
 
-The API reads `API_HOST`, `API_PORT`, `NODE_ENV`, and `API_CORS_ORIGINS` from
-its server environment; `apps/api/.env.example` documents local defaults.
 Expo may use `EXPO_PUBLIC_API_URL` to override the local API address, as
 documented in `apps/mobile/.env.example`. A physical device needs an address
 reachable from that device, such as a LAN or tunnel URL.

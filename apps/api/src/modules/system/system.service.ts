@@ -1,5 +1,7 @@
+import { Injectable } from "@nestjs/common";
 import type { SystemHealthResponse } from "@unimate/contracts";
 
+@Injectable()
 export class SystemService {
   health(): SystemHealthResponse {
     return {

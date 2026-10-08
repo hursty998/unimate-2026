@@ -50,6 +50,9 @@ importers:
       '@unimate/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2

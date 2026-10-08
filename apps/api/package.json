@@ -9,7 +9,7 @@
     "watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test dist/config/*.test.js dist/modules/system/*.test.js",
+    "test": "node --test dist/config/*.test.js dist/cors.test.js dist/modules/system/*.test.js",
     "openapi:generate": "node dist/generate-openapi.js"
   },
   "dependencies": {
@@ -21,6 +21,7 @@
     "@orpc/server": "1.15.5",
     "@orpc/zod": "1.15.5",
     "@unimate/contracts": "workspace:*",
+    "fastify": "5.12.5",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "zod": "4.6.5"
