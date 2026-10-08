@@ -193,6 +193,7 @@ Use stable releases unless an unstable dependency is explicitly approved.
 For Expo SDK packages, use Expo-compatible installation commands rather than guessing versions.
 
 Adding or changing a native dependency may require a new development build.
+For Expo native dependencies, native permissions, development-client rebuild decisions, and runtime fingerprints, consult `docs/engineering/NATIVE_RUNTIME.md`.
 
 ## Documentation
 
