@@ -16,12 +16,22 @@ enum AuthProvider {
   @@schema("app")
 }
 
+enum AuthorizationScopeKind {
+  PLATFORM
+  UNIVERSITY
+
+  @@map("authorization_scope_kind")
+  @@schema("app")
+}
+
 model User {
   id                     String                  @id @default(uuid(7)) @db.Uuid
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
   authIdentities         AuthIdentity[]
   universityAffiliations UniversityAffiliation[]
+  roleAssignments        RoleAssignment[]
+  capabilityAssignments  CapabilityAssignment[]
 
   @@map("users")
   @@schema("app")
@@ -48,6 +58,8 @@ model University {
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
   universityAffiliations UniversityAffiliation[]
+  roleAssignments        RoleAssignment[]
+  capabilityAssignments  CapabilityAssignment[]
 
   @@map("universities")
   @@schema("app")
@@ -64,6 +76,67 @@ model UniversityAffiliation {
   @@unique([userId, universityId])
   @@index([universityId])
   @@map("university_affiliations")
+  @@schema("app")
+}
+
+model Role {
+  id           String                 @id @default(uuid(7)) @db.Uuid
+  key          String
+  name         String
+  description  String?
+  scopeKind    AuthorizationScopeKind @map("scope_kind")
+  createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  capabilities RoleCapability[]
+  assignments  RoleAssignment[]
+
+  @@unique([scopeKind, key])
+  @@map("roles")
+  @@schema("app")
+}
+
+model RoleCapability {
+  roleId     String   @map("role_id") @db.Uuid
+  capability String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, capability])
+  @@map("role_capabilities")
+  @@schema("app")
+}
+
+model RoleAssignment {
+  id           String                 @id @default(uuid(7)) @db.Uuid
+  userId       String                 @map("user_id") @db.Uuid
+  roleId       String                 @map("role_id") @db.Uuid
+  scopeKind    AuthorizationScopeKind @map("scope_kind")
+  universityId String?                @map("university_id") @db.Uuid
+  createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role                   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  university   University?            @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scopeKind, universityId, roleId])
+  @@index([roleId])
+  @@index([universityId])
+  @@map("role_assignments")
+  @@schema("app")
+}
+
+model CapabilityAssignment {
+  id           String                 @id @default(uuid(7)) @db.Uuid
+  userId       String                 @map("user_id") @db.Uuid
+  capability   String
+  scopeKind    AuthorizationScopeKind @map("scope_kind")
+  universityId String?                @map("university_id") @db.Uuid
+  createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university   University?            @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scopeKind, universityId, capability])
+  @@index([universityId])
+  @@map("capability_assignments")
   @@schema("app")
 }
 

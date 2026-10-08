@@ -1,7 +1,7 @@
 import { Controller } from "@nestjs/common";
 import { Implement, implement } from "@orpc/nest";
 import { contract } from "@unimate/contracts";
-import { Public } from "../auth/authentication.guard.js";
+import { Public } from "../auth/access-posture.decorator.js";
 import { SystemService } from "./system.service.js";
 
 export function createSystemHealthProcedure(systemService: SystemService) {

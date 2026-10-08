@@ -48,6 +48,11 @@ export default tseslint.config(
                 "Mobile must use the shared API contract; database access is server-only.",
             },
             {
+              name: "@unimate/authorization",
+              message:
+                "Mobile must not implement or rely on the server-side authorization system.",
+            },
+            {
               name: "@prisma/client",
               message:
                 "Mobile must use the shared API contract; Prisma is server-only.",
@@ -63,6 +68,8 @@ export default tseslint.config(
               group: [
                 "@unimate/api/*",
                 "@unimate/api/**",
+                "@unimate/authorization",
+                "@unimate/authorization/**",
                 "@unimate/database/*",
                 "@unimate/database/**",
                 "@unimate/*/server",
@@ -99,6 +106,9 @@ export default tseslint.config(
                 "@unimate/database",
                 "@unimate/database/*",
                 "@unimate/database/**",
+                "@unimate/authorization",
+                "@unimate/authorization/*",
+                "@unimate/authorization/**",
                 "@unimate/mobile",
                 "@unimate/mobile/**",
                 "@supabase/*",
@@ -215,6 +225,37 @@ export default tseslint.config(
               ],
               message:
                 "The database package may depend on PostgreSQL/Prisma infrastructure, not application packages, framework runtimes, or Supabase SDKs.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["packages/authorization/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@nestjs/*",
+                "@nestjs/**",
+                "@prisma/*",
+                "@prisma/**",
+                "@supabase/*",
+                "@supabase/**",
+                "@unimate/*",
+                "@unimate/**",
+                "expo",
+                "expo-*",
+                "react-native",
+                "react-native-*",
+                "prisma",
+              ],
+              message:
+                "The authorization package is the pure capability source of truth and cannot depend on frameworks, providers, database, or application packages.",
             },
           ],
         },

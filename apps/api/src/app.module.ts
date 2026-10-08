@@ -5,6 +5,8 @@ import {
   AuthModule,
   type AuthModuleOverrides,
 } from "./modules/auth/auth.module.js";
+import { DatabaseModule } from "./infrastructure/database/database.module.js";
+import { AuthorizationModule } from "./modules/authorization/authorization.module.js";
 import { SystemModule } from "./modules/system/system.module.js";
 
 @Module({})
@@ -17,8 +19,10 @@ export class AppModule {
       module: AppModule,
       imports: [
         ORPCModule.forRoot({}),
+        DatabaseModule.forRoot(config.databaseUrl),
         SystemModule,
         AuthModule.register(config, authOverrides),
+        AuthorizationModule,
       ],
     };
   }

@@ -76,6 +76,8 @@ Use:
 - Database architecture and workflow: `docs/engineering/DATABASE.md` and `packages/database/AGENTS.md`
 - Authentication infrastructure: `packages/auth`
 - Authentication architecture and lifecycle: `docs/engineering/AUTHENTICATION.md`
+- Authorisation catalogue: `packages/authorization`
+- Authorisation architecture and enforcement: `docs/engineering/AUTHORIZATION.md`
 - Object storage: `packages/storage`
 - Queue infrastructure: `packages/queue`
 - Push notifications: `packages/notifications`

@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  Global,
   Module,
   type DynamicModule,
   type OnModuleDestroy,
@@ -22,6 +23,7 @@ export class DatabaseClientService implements OnModuleDestroy {
   }
 }
 
+@Global()
 @Module({})
 export class DatabaseModule {
   static forRoot(connectionString: string): DynamicModule {

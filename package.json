@@ -19,7 +19,7 @@
     "format": "prettier --write . && pnpm --filter @unimate/database format",
     "format:check": "prettier --check .",
     "verify:changed": "pnpm format:check && pnpm test:tooling && turbo run lint lint:root typecheck build test --affected",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm openapi:generate && pnpm test && pnpm db:check && pnpm db:test && pnpm auth:test",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm openapi:generate && pnpm test && pnpm db:check && pnpm db:test && pnpm auth:test && pnpm authorization:test",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
@@ -31,6 +31,7 @@
     "db:check": "pnpm --filter @unimate/database check",
     "db:test": "pnpm --filter @unimate/database test:integration",
     "auth:test": "pnpm exec turbo run build --filter=@unimate/api && node --env-file-if-exists=packages/database/.env --env-file-if-exists=apps/api/.env scripts/auth-test.mjs",
+    "authorization:test": "pnpm db:generate && pnpm exec turbo run build --filter=@unimate/api && node --env-file-if-exists=packages/database/.env scripts/authorization-test.mjs",
     "git-diff": "node scripts/git-diff.mjs"
   },
   "devDependencies": {

@@ -50,6 +50,9 @@ importers:
       '@unimate/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@unimate/authorization':
+        specifier: workspace:*
+        version: link:../../packages/authorization
       '@unimate/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -219,6 +222,15 @@ importers:
       jose:
         specifier: 6.2.12
         version: 6.2.12
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.1
+        version: 24.19.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/authorization:
     devDependencies:
       '@types/node':
         specifier: 24.19.1

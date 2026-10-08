@@ -5,7 +5,6 @@ import {
   type AccessTokenVerifier,
 } from "@unimate/auth";
 import type { ApiConfig } from "../../config/environment.js";
-import { DatabaseModule } from "../../infrastructure/database/database.module.js";
 import {
   AuthenticationGuard,
   ACCESS_TOKEN_VERIFIER,
@@ -48,9 +47,6 @@ export class AuthModule {
 
     return {
       module: AuthModule,
-      imports: overrides.authMeService
-        ? []
-        : [DatabaseModule.forRoot(config.databaseUrl)],
       controllers: [AuthController],
       providers,
     };

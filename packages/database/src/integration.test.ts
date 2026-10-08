@@ -233,7 +233,11 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
       appTables.map(({ tableName }) => tableName).sort(),
       [
         "auth_identities",
+        "capability_assignments",
         "outbox_messages",
+        "role_assignments",
+        "role_capabilities",
+        "roles",
         "universities",
         "university_affiliations",
         "users",
