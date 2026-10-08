@@ -10,6 +10,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { authMeQueryKey } from "@/features/auth/auth-me-query-key";
 import { getSupabaseClient, setCurrentAccessToken } from "./supabase-client";
+import { signOutCurrentSession } from "./sign-out";
 
 interface AuthContextValue {
   session: Session | null;
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       subscription.unsubscribe();
+      setCurrentAccessToken(null);
       appStateSubscription?.remove();
 
       if (Platform.OS !== "web") {
@@ -98,11 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut(): Promise<void> {
-    const { error } = await getSupabaseClient().auth.signOut();
-
-    if (error) {
-      throw new Error("Sign out failed. Please try again.");
-    }
+    const auth = getSupabaseClient().auth;
+    await signOutCurrentSession((options) => auth.signOut(options));
   }
 
   return (

@@ -24,6 +24,8 @@ Supabase's supported asymmetric ES256 and RS256 signatures, and validates
 signature, issuer, audience, expiry, not-before when present, and a non-empty
 subject. The API does not call Supabase Auth for each request and does not need
 a Supabase secret key, service-role key, or shared JWT signing secret.
+`SUPABASE_URL` must use HTTPS for remote origins; HTTP is accepted only for a
+loopback local Supabase stack.
 
 Protected API operations are authenticated by default. `@Public()` is the
 explicit exception for the public system-health operation. Phase 5 establishes
@@ -53,7 +55,9 @@ native encrypted storage, and has weaker security properties.
 
 The auth provider owns provider session state. TanStack Query owns `/v1/auth/me`
 and removes private identity data when the provider user changes or signs out.
-Sign-out ends the provider session; it does not delete the UniMate User or
+The ordinary mobile Sign out action uses Supabase's `scope: "local"` so it
+terminates only the current session/device; a future global sign-out must be a
+separate explicit action. Sign-out does not delete the UniMate User or
 AuthIdentity.
 
 ## Configuration and local testing
@@ -63,6 +67,13 @@ AuthIdentity.
 `sb_publishable_` key is accepted in Expo. Never place a secret key,
 service-role key, JWT signing secret, or database credential in an Expo
 environment variable.
+
+Production mobile builds require HTTPS for configured UniMate API and Supabase
+URLs. In development (`__DEV__`), HTTPS is always accepted and HTTP is limited
+to loopback/private development hosts, including Android emulator `10.0.2.2`
+and a deliberately configured private LAN address. This preserves simulator,
+emulator, and physical-device local testing without permitting remote plaintext
+HTTP.
 
 For local development, start the local stack with `pnpm db:start`, apply/check
 Prisma migrations with `pnpm db:check`, configure `apps/api/.env` and

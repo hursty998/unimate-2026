@@ -16,6 +16,7 @@ const identityWithUserSelection = {
       id: true,
       universityAffiliations: {
         select: { universityId: true },
+        orderBy: { universityId: "asc" },
       },
     },
   },

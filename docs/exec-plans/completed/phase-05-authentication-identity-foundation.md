@@ -42,3 +42,20 @@
 - Supabase documentation MCP was unavailable at its configured endpoint; current official Supabase and versioned Expo documentation were fetched directly.
 - No Prisma schema/migration changes were needed. No hosted Supabase project was linked or changed. Generated OpenAPI contains `/v1/auth/me`; no extra OpenAPI security scheme metadata was added because the current contract configuration does not provide a clearly simple contract-derived scheme.
 - Synthetic runtime/test Auth users and their UniMate rows were removed. No access token, refresh token, password, publishable key value, secret key value, or database credential was committed. No native/EAS build, commit, or push occurred.
+
+## Pre-commit hardening follow-up
+
+- Verified the installed Supabase JS 2.117.3 declarations and official sign-out reference: the default scope is `global`, while `scope: "local"` ends only the current session. The ordinary mobile Sign out action now explicitly uses `local`; a future all-device action must be explicit. Auth provider teardown clears the in-memory bearer-token accessor.
+- The server verifier rejects non-loopback plaintext HTTP Supabase origins and accepts HTTPS remote origins. Mobile API/Auth endpoints require HTTPS in production (`__DEV__ === false`); development permits HTTP only for loopback, Android `10.0.2.2`, and private/local development hosts. The shared pure URL-policy tests make no network requests.
+- The existing local host mappings remain unchanged. No additional runtime session-persistence loop was needed; prior Phase 5 web/iOS/Android evidence remains applicable, while the new URL policy and production static-export behavior passed focused tests/build.
+- The main Expo TypeScript configuration excludes Node-based tests and Node globals. `tsconfig.test.json` scopes Node types and `allowImportingTsExtensions` to the existing Node test runner; no new test framework was added.
+- Authenticated affiliation results now sort by `universityId` for deterministic output; no primary-affiliation semantics were introduced.
+- The final hardening pass passed frozen install, Expo dependency compatibility, formatting, lint, typecheck, build, ordinary tests, DB checks/tests, local Auth integration, OpenAPI generation, `pnpm verify`, `pnpm verify:changed`, `git diff --check`, `pnpm git-diff`, and the secret scan. No schema migration, Phase 6/RBAC work, hosted Supabase change, native/EAS build, commit, or push was made.
+
+## Final targeted hardening
+
+- Confirmed against the installed Supabase JS 2.117.3 declarations and current official `auth.signOut` documentation that the default scope is `global`; the ordinary mobile action now explicitly uses `scope: "local"`. Global logout remains a future explicit action. Auth provider teardown also clears the in-memory bearer-token accessor.
+- The server verifier rejects non-loopback plaintext HTTP `SUPABASE_URL` values while permitting the observed local loopback gateway and HTTPS remote origins. Mobile API and Supabase URL resolution shares a pure transport policy: production requires HTTPS; Expo `__DEV__` allows HTTP only for loopback/private development hosts, including Android `10.0.2.2` and private LAN addresses. Default host mappings are unchanged.
+- The main Expo TypeScript config now excludes Node-based tests and does not include Node globals or `allowImportingTsExtensions`; `tsconfig.test.json` scopes those settings to the Node test runner. No test framework was added.
+- `/v1/auth/me` affiliation results now have a stable `universityId` ordering; no primary-affiliation or other product semantics were added.
+- Focused tests and the full final verification passed, including the local Supabase refresh integration. No Phase 6 work, schema changes, hosted operations, native rebuilds, commits, or pushes were introduced.

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/client";
+import { getApiClient } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
 import { authMeQueryKey } from "./auth-me-query-key";
 
@@ -8,7 +8,7 @@ export function useAuthMe() {
 
   return useQuery({
     queryKey: authMeQueryKey,
-    queryFn: () => apiClient.auth.me(),
+    queryFn: () => getApiClient().auth.me(),
     enabled: !isLoading && session !== null,
   });
 }

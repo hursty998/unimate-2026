@@ -1,32 +1,29 @@
 import { Platform } from "react-native";
+import { validateCredentialEndpointUrl } from "../network/endpoint-url";
 
 type MobilePlatform = typeof Platform.OS;
 
-function validateApiUrl(value: string): string {
-  const parsedUrl = new URL(value);
-
-  if (
-    (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") ||
-    parsedUrl.pathname !== "/" ||
-    parsedUrl.search.length > 0 ||
-    parsedUrl.hash.length > 0
-  ) {
-    throw new Error(
-      "EXPO_PUBLIC_API_URL must be an HTTP(S) origin without a path, query, or fragment.",
-    );
-  }
-
-  return parsedUrl.origin;
-}
+declare const __DEV__: boolean;
 
 export function resolveApiBaseUrl(
   platform: MobilePlatform = Platform.OS,
   override: string | undefined = process.env.EXPO_PUBLIC_API_URL,
+  development: boolean = __DEV__,
 ): string {
   const configuredUrl = override?.trim();
 
   if (configuredUrl) {
-    return validateApiUrl(configuredUrl);
+    return validateCredentialEndpointUrl(
+      configuredUrl,
+      "EXPO_PUBLIC_API_URL",
+      development,
+    );
+  }
+
+  if (!development) {
+    throw new Error(
+      "EXPO_PUBLIC_API_URL must be configured with HTTPS in production.",
+    );
   }
 
   switch (platform) {

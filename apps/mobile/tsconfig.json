@@ -13,12 +13,11 @@
     "noEmit": true,
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
-    "allowImportingTsExtensions": true,
-    "types": ["node", "react"],
+    "types": ["react"],
     "paths": {
       "@/*": ["src/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx"]
 }

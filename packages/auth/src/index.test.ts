@@ -105,6 +105,32 @@ function verifier() {
   });
 }
 
+test("accepts the local loopback Supabase HTTP origin", () => {
+  assert.doesNotThrow(() =>
+    createSupabaseAccessTokenVerifier({
+      supabaseUrl: "http://127.0.0.1:55321",
+    }),
+  );
+});
+
+test("accepts a remote HTTPS Supabase origin", () => {
+  assert.doesNotThrow(() =>
+    createSupabaseAccessTokenVerifier({
+      supabaseUrl: "https://auth.example.com",
+    }),
+  );
+});
+
+test("rejects a remote plaintext HTTP Supabase origin", () => {
+  assert.throws(
+    () =>
+      createSupabaseAccessTokenVerifier({
+        supabaseUrl: "http://auth.example.com",
+      }),
+    /must use HTTPS/,
+  );
+});
+
 test("accepts a valid ES256 JWT and returns only its verified subject", async () => {
   const token = await signAccessToken({ privateKey: ecKeyPair.privateKey });
 

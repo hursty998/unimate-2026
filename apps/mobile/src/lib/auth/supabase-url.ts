@@ -1,34 +1,29 @@
 import { Platform } from "react-native";
+import { validateCredentialEndpointUrl } from "@/lib/network/endpoint-url";
 
 type MobilePlatform = typeof Platform.OS;
 
-function validateSupabaseUrl(value: string): string {
-  const parsedUrl = new URL(value);
-
-  if (
-    (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") ||
-    parsedUrl.pathname !== "/" ||
-    parsedUrl.search.length > 0 ||
-    parsedUrl.hash.length > 0 ||
-    parsedUrl.username.length > 0 ||
-    parsedUrl.password.length > 0
-  ) {
-    throw new Error(
-      "EXPO_PUBLIC_SUPABASE_URL must be an HTTP(S) origin without credentials, a path, query, or fragment.",
-    );
-  }
-
-  return parsedUrl.origin;
-}
+declare const __DEV__: boolean;
 
 export function resolveSupabaseUrl(
   platform: MobilePlatform = Platform.OS,
   override: string | undefined = process.env.EXPO_PUBLIC_SUPABASE_URL,
+  development: boolean = __DEV__,
 ): string {
   const configuredUrl = override?.trim();
 
   if (configuredUrl) {
-    return validateSupabaseUrl(configuredUrl);
+    return validateCredentialEndpointUrl(
+      configuredUrl,
+      "EXPO_PUBLIC_SUPABASE_URL",
+      development,
+    );
+  }
+
+  if (!development) {
+    throw new Error(
+      "EXPO_PUBLIC_SUPABASE_URL must be configured with HTTPS in production.",
+    );
   }
 
   switch (platform) {

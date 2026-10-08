@@ -15,6 +15,11 @@ export interface SupabaseAccessTokenVerifierOptions {
 }
 
 const SUPPORTED_ASYMMETRIC_ALGORITHMS = ["ES256", "RS256"] as const;
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function isLoopbackHostname(hostname: string): boolean {
+  return LOOPBACK_HOSTS.has(hostname.toLowerCase().replace(/^\[(.*)\]$/, "$1"));
+}
 
 export function createSupabaseAccessTokenVerifier({
   supabaseUrl,
@@ -32,6 +37,15 @@ export function createSupabaseAccessTokenVerifier({
   ) {
     throw new Error(
       "SUPABASE_URL must be an HTTP(S) origin without credentials, a path, query, or fragment.",
+    );
+  }
+
+  if (
+    projectUrl.protocol === "http:" &&
+    !isLoopbackHostname(projectUrl.hostname)
+  ) {
+    throw new Error(
+      "SUPABASE_URL must use HTTPS except for the local loopback Supabase stack.",
     );
   }
 

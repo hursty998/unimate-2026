@@ -5,6 +5,8 @@ import { contract } from "@unimate/contracts";
 import { getCurrentAccessToken } from "@/lib/auth/supabase-client";
 import { resolveApiBaseUrl } from "./base-url";
 
+type ApiClient = ContractRouterClient<typeof contract>;
+
 const authenticatedFetch = async (
   request: Request,
   init: { redirect?: Request["redirect"] },
@@ -21,10 +23,17 @@ const authenticatedFetch = async (
   return fetch(new Request(request, { ...init, headers }));
 };
 
-const link = new OpenAPILink(contract, {
-  url: resolveApiBaseUrl(),
-  fetch: authenticatedFetch,
-});
+let apiClient: ApiClient | undefined;
 
-export const apiClient =
-  createORPCClient<ContractRouterClient<typeof contract>>(link);
+export function getApiClient(): ApiClient {
+  if (!apiClient) {
+    const link = new OpenAPILink(contract, {
+      url: resolveApiBaseUrl(),
+      fetch: authenticatedFetch,
+    });
+
+    apiClient = createORPCClient<ApiClient>(link);
+  }
+
+  return apiClient;
+}

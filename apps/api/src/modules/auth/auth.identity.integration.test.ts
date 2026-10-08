@@ -20,8 +20,8 @@ test("identity provisioning is atomic, repeatable, and race-safe in PostgreSQL",
     `phase5-provision:${suffix}`,
     `phase5-concurrent:${suffix}`,
   ];
+  const universityIds: string[] = [];
   const initialUserCount = await database.client.user.count();
-  let universityId: string | undefined;
 
   try {
     const first = await service.getMe({
@@ -78,10 +78,24 @@ test("identity provisioning is atomic, repeatable, and race-safe in PostgreSQL",
     const university = await database.client.university.create({
       data: {
         name: `Phase 5 integration ${suffix}`,
-        slug: `phase5-${suffix}`,
+        slug: `phase5-${suffix}-a`,
       },
     });
-    universityId = university.id;
+    universityIds.push(university.id);
+    const secondUniversity = await database.client.university.create({
+      data: {
+        name: `Phase 5 integration secondary ${suffix}`,
+        slug: `phase5-${suffix}-b`,
+      },
+    });
+    universityIds.push(secondUniversity.id);
+
+    await database.client.universityAffiliation.create({
+      data: {
+        userId: first.user.id,
+        universityId: secondUniversity.id,
+      },
+    });
     await database.client.universityAffiliation.create({
       data: {
         userId: first.user.id,
@@ -95,7 +109,9 @@ test("identity provisioning is atomic, repeatable, and race-safe in PostgreSQL",
     });
     assert.deepEqual(withAffiliation, {
       user: { id: first.user.id },
-      universityAffiliations: [{ universityId: university.id }],
+      universityAffiliations: [university.id, secondUniversity.id]
+        .sort()
+        .map((universityId) => ({ universityId })),
     });
   } finally {
     try {
@@ -110,9 +126,9 @@ test("identity provisioning is atomic, repeatable, and race-safe in PostgreSQL",
           where: { id: { in: testUserIds } },
         });
       }
-      if (universityId) {
+      if (universityIds.length > 0) {
         await database.client.university.deleteMany({
-          where: { id: universityId },
+          where: { id: { in: universityIds } },
         });
       }
     } finally {

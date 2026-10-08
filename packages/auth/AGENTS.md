@@ -6,6 +6,8 @@
 - Verify access tokens locally with `jose` and asymmetric JWKS keys. Never add a
   shared Supabase JWT secret, service-role credential, provider metadata, or
   user-profile fields to the verified identity.
+- Require HTTPS for remote Supabase issuer/JWKS origins; permit HTTP only for
+  the local loopback development stack.
 - Keep the public package API small: verified identity and token-verifier
   contracts plus the Supabase adapter.
 - Keep verifier tests deterministic and independent of Supabase.
