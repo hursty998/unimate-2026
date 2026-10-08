@@ -38,6 +38,11 @@ export default tseslint.config(
         {
           paths: [
             {
+              name: "@unimate/api",
+              message:
+                "Mobile must use the shared API contract; the server package is not a client dependency.",
+            },
+            {
               name: "@unimate/database",
               message:
                 "Mobile must use the shared API contract; database access is server-only.",
@@ -56,14 +61,75 @@ export default tseslint.config(
           patterns: [
             {
               group: [
+                "@unimate/api/*",
+                "@unimate/api/**",
                 "@unimate/database/*",
                 "@unimate/database/**",
                 "@unimate/*/server",
                 "@unimate/*/server/**",
+                "@nestjs/*",
+                "@nestjs/**",
+                "@orpc/nest",
+                "@orpc/server",
                 "@prisma/*",
               ],
               message:
-                "Mobile must not import database internals or server-only implementations.",
+                "Mobile must not import the API, NestJS, database internals, or server-only implementations.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["packages/contracts/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@nestjs/*",
+                "@nestjs/**",
+                "@prisma/*",
+                "@prisma/**",
+                "@unimate/api",
+                "@unimate/api/**",
+                "@unimate/mobile",
+                "@unimate/mobile/**",
+                "@supabase/*",
+                "@supabase/**",
+                "@aws-sdk/*",
+                "@aws-sdk/**",
+                "@sentry/*",
+                "@sentry/**",
+                "@orpc/nest",
+                "@orpc/server",
+                "expo",
+                "expo-*",
+                "react-native",
+                "react-native-*",
+              ],
+              message:
+                "Contracts may depend only on transport-neutral contract/schema code, not server, mobile, database, or provider implementations.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/api/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@unimate/mobile", "@unimate/mobile/**"],
+              message:
+                "The API may depend on shared contracts, not the Expo application.",
             },
           ],
         },

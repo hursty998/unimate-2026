@@ -15,6 +15,7 @@
     "typecheck": "turbo run typecheck",
     "test": "pnpm test:tooling && turbo run test",
     "test:tooling": "node --test scripts/*.test.mjs",
+    "openapi:generate": "turbo run openapi:generate --filter=@unimate/api",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify:changed": "pnpm format:check && pnpm test:tooling && turbo run lint lint:root typecheck build test --affected",

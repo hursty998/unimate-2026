@@ -150,7 +150,12 @@ rules should be extended when those implementations are introduced.
 
 ## Environment boundary
 
-Phase 2 needs no environment variables and adds no `.env` file. Future values
-intended for the client must use `EXPO_PUBLIC_*` and must be treated as public
-because they are embedded in the app. Server-only secrets must remain in
-server/EAS secret configuration and must never use the `EXPO_PUBLIC_` prefix.
+The API reads `API_HOST`, `API_PORT`, `NODE_ENV`, and `API_CORS_ORIGINS` from
+its server environment; `apps/api/.env.example` documents local defaults.
+Expo may use `EXPO_PUBLIC_API_URL` to override the local API address, as
+documented in `apps/mobile/.env.example`. A physical device needs an address
+reachable from that device, such as a LAN or tunnel URL.
+
+Values using `EXPO_PUBLIC_*` are embedded in the client and are public. Never
+put server secrets in Expo public variables; keep future secrets in server/EAS
+secret configuration.

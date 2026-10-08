@@ -9,14 +9,23 @@
       "dependsOn": ["^lint"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
-    },
-    "test": {
       "dependsOn": ["^build"]
     },
+    "test": {
+      "dependsOn": ["^build", "build"]
+    },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
+    },
+    "watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "openapi:generate": {
+      "dependsOn": ["build"],
+      "cache": false
     },
     "//#lint:root": {}
   }

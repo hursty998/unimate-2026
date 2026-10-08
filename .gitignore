@@ -29,6 +29,7 @@ DerivedData/
 
 # Local generated review output
 /docs/generated/git-diff.md
+/docs/generated/openapi.json
 
 # Test output
 /test-results/
