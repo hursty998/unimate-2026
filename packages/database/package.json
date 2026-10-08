@@ -1,5 +1,43 @@
 {
   "name": "@unimate/database",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.scripts.json",
+    "generate": "prisma generate --config prisma7.config.ts",
+    "validate": "prisma validate --config prisma7.config.ts",
+    "format": "prisma format --schema prisma/schema.prisma",
+    "migrate:dev": "prisma migrate dev --config prisma7.config.ts",
+    "migrate:deploy": "prisma migrate deploy --config prisma7.config.ts",
+    "migrate:status": "prisma migrate status --config prisma7.config.ts",
+    "seed": "prisma db seed --config prisma7.config.ts",
+    "reset:local": "node scripts/reset-local.mjs",
+    "check": "pnpm validate && pnpm generate && pnpm migrate:status",
+    "test:integration": "pnpm generate && pnpm build && node --test dist/integration.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "@types/pg": "8.23.1",
+    "dotenv": "18.0.6",
+    "prisma": "7.10.0",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "8.23.1"
+  }
 }

@@ -96,10 +96,14 @@ export default tseslint.config(
                 "@prisma/**",
                 "@unimate/api",
                 "@unimate/api/**",
+                "@unimate/database",
+                "@unimate/database/*",
+                "@unimate/database/**",
                 "@unimate/mobile",
                 "@unimate/mobile/**",
                 "@supabase/*",
                 "@supabase/**",
+                "prisma",
                 "@aws-sdk/*",
                 "@aws-sdk/**",
                 "@sentry/*",
@@ -130,6 +134,34 @@ export default tseslint.config(
               group: ["@unimate/mobile", "@unimate/mobile/**"],
               message:
                 "The API may depend on shared contracts, not the Expo application.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["packages/database/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@nestjs/*",
+                "@nestjs/**",
+                "@supabase/*",
+                "@supabase/**",
+                "@unimate/*",
+                "@unimate/**",
+                "expo",
+                "expo-*",
+                "react-native",
+                "react-native-*",
+              ],
+              message:
+                "The database package may depend on PostgreSQL/Prisma infrastructure, not application packages, framework runtimes, or Supabase SDKs.",
             },
           ],
         },

@@ -73,6 +73,7 @@ Use:
 
 - API contracts: `packages/contracts`
 - Database schema and Prisma: `packages/database`
+- Database architecture and workflow: `docs/engineering/DATABASE.md` and `packages/database/AGENTS.md`
 - Authentication infrastructure: `packages/auth`
 - Object storage: `packages/storage`
 - Queue infrastructure: `packages/queue`

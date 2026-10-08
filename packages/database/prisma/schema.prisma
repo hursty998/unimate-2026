@@ -1,0 +1,81 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["app"]
+}
+
+enum AuthProvider {
+  SUPABASE
+
+  @@map("auth_provider")
+  @@schema("app")
+}
+
+model User {
+  id                     String                  @id @default(uuid(7)) @db.Uuid
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  authIdentities         AuthIdentity[]
+  universityAffiliations UniversityAffiliation[]
+
+  @@map("users")
+  @@schema("app")
+}
+
+model AuthIdentity {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  userId          String       @map("user_id") @db.Uuid
+  provider        AuthProvider
+  providerSubject String       @map("provider_subject")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@map("auth_identities")
+  @@schema("app")
+}
+
+model University {
+  id                     String                  @id @default(uuid(7)) @db.Uuid
+  name                   String
+  slug                   String                  @unique
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  universityAffiliations UniversityAffiliation[]
+
+  @@map("universities")
+  @@schema("app")
+}
+
+model UniversityAffiliation {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  universityId String     @map("university_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, universityId])
+  @@index([universityId])
+  @@map("university_affiliations")
+  @@schema("app")
+}
+
+model OutboxMessage {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  eventType      String    @map("event_type")
+  payloadVersion Int       @default(1) @map("payload_version")
+  payload        Json      @db.JsonB
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
+
+  @@index([publishedAt, createdAt, id])
+  @@map("outbox_messages")
+  @@schema("app")
+}

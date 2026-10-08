@@ -5,6 +5,7 @@
 **/build/
 **/coverage/
 *.tsbuildinfo
+**/src/generated/prisma/
 
 # Expo and native build artefacts
 **/.expo/
