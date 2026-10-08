@@ -62,3 +62,7 @@
 - Added one University-scoped authorisation-management capability so PostgreSQL integration tests exercise a real University scope and exact A-versus-B isolation. No product-domain capability catalogue was added.
 - Moved API database-module registration to the application composition root so the Auth identity service and AuthorizationService share one Prisma client. This is dependency-injection wiring only; the verified Supabase authentication architecture and `/auth/me` behaviour are unchanged.
 - No open Phase 6 decisions or acceptance blockers remain. Product roles, role-management endpoints/UI, resource policies, additional scopes, and Phase 7 remain deferred.
+
+## Final hardening note
+
+`AuthorizationGuard` now follows the effective access posture, so a method-level `@Public()` or `@Authenticated()` override skips a class-level `@RequireCapability(...)` guard. The source architecture test rejects multiple postures at either declaration level and allows one explicit method override. The applied Prisma migration was reviewed and left unchanged.

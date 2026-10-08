@@ -26,7 +26,9 @@
     "reset:local": "node scripts/reset-local.mjs",
     "test": "node --test connection-safety.test.mjs",
     "check": "pnpm validate && pnpm generate && pnpm migrate:status",
-    "test:integration": "pnpm generate && pnpm build && node --test dist/integration.test.js"
+    "check:prepared": "pnpm validate && pnpm migrate:status",
+    "test:integration": "pnpm generate && pnpm build && pnpm test:integration:prepared",
+    "test:integration:prepared": "node --env-file-if-exists=.env --test dist/integration.test.js"
   },
   "devDependencies": {
     "@types/node": "24.19.1",

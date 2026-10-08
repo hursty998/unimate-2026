@@ -10,6 +10,10 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { isCapabilityForScope } from "@unimate/authorization";
+import {
+  API_ACCESS_POSTURE_METADATA,
+  type ApiAccessPosture,
+} from "../auth/access-posture.decorator.js";
 import type { AuthenticatedRequest } from "../auth/authenticated-principal.js";
 import { AuthorizationService } from "./authorization.service.js";
 
@@ -26,13 +30,25 @@ export class AuthorizationGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const routeTargets = [context.getHandler(), context.getClass()];
+    const accessPosture = this.reflector.getAllAndOverride<ApiAccessPosture>(
+      API_ACCESS_POSTURE_METADATA,
+      routeTargets,
+    );
+
+    if (accessPosture !== "AUTHORISED") {
+      return true;
+    }
+
     const capability = this.reflector.getAllAndOverride<unknown>(
       REQUIRED_CAPABILITY_METADATA,
-      [context.getHandler(), context.getClass()],
+      routeTargets,
     );
 
     if (capability === undefined) {
-      return true;
+      throw new InternalServerErrorException(
+        "An authorised route has no required capability.",
+      );
     }
 
     if (!isCapabilityForScope(capability, "PLATFORM")) {

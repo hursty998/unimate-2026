@@ -13,7 +13,7 @@ import {
   type AuthorizationScope,
   type Capability,
 } from "@unimate/authorization";
-import { Authenticated } from "../auth/access-posture.decorator.js";
+import { Authenticated, Public } from "../auth/access-posture.decorator.js";
 import {
   ACCESS_TOKEN_VERIFIER,
   AuthenticationGuard,
@@ -53,6 +53,27 @@ class AuthorizationGuardTestController {
   }
 }
 
+@Controller("test-only/class-level")
+@RequireCapability(Capabilities.PLATFORM_AUTHORIZATION_MANAGE)
+class ClassLevelCapabilityTestController {
+  @Get("inherited")
+  inheritedCapability() {
+    return { allowed: true };
+  }
+
+  @Get("public-override")
+  @Public()
+  publicOverride() {
+    return { allowed: true };
+  }
+
+  @Get("authenticated-override")
+  @Authenticated()
+  authenticatedOverride() {
+    return { allowed: true };
+  }
+}
+
 @Module({})
 class AuthorizationGuardTestModule {
   static register(
@@ -60,7 +81,10 @@ class AuthorizationGuardTestModule {
   ): DynamicModule {
     return {
       module: AuthorizationGuardTestModule,
-      controllers: [AuthorizationGuardTestController],
+      controllers: [
+        AuthorizationGuardTestController,
+        ClassLevelCapabilityTestController,
+      ],
       providers: [
         AuthorizationGuard,
         {
@@ -128,6 +152,39 @@ test("authenticated-only routes do not invoke authorization without capability m
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), { allowed: true });
     assert.equal(calls.length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test("method access posture overrides class-level capability authorization", async () => {
+  const { calls, authorization } = captureAuthorizationCalls();
+  const app = await createTestApplication(authorization);
+
+  try {
+    const publicResponse = await app.inject({
+      method: "GET",
+      url: "/test-only/class-level/public-override",
+    });
+    const authenticatedResponse = await app.inject({
+      method: "GET",
+      url: "/test-only/class-level/authenticated-override",
+      headers: { authorization: "Bearer valid-test-token" },
+    });
+    const inheritedResponse = await app.inject({
+      method: "GET",
+      url: "/test-only/class-level/inherited",
+      headers: { authorization: "Bearer valid-test-token" },
+    });
+
+    assert.equal(publicResponse.statusCode, 200);
+    assert.equal(authenticatedResponse.statusCode, 200);
+    assert.equal(inheritedResponse.statusCode, 200);
+    assert.equal(calls.length, 1);
+    assert.equal(
+      calls[0]?.capability,
+      Capabilities.PLATFORM_AUTHORIZATION_MANAGE,
+    );
   } finally {
     await app.close();
   }

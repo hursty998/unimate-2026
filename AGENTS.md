@@ -171,6 +171,16 @@ Do not claim a check passed unless it was actually run.
 
 Fix failures introduced by your change before finishing.
 
+## Coding-agent verification loop
+
+- After adding a workspace package, dependency, or dependency edge, run `pnpm install` before building or testing it.
+- Prefer focused checks during implementation; run `pnpm verify:changed` for fast affected checks and `pnpm verify` once for full validation. Use `pnpm verify:verbose` when live task output is needed.
+- If verification fails, use its final step/log summary; inspect the full temporary log only when the bounded tail is insufficient, fix and rerun that step, then rerun full verification.
+- After Prisma model/table changes, search for physical schema inventory assertions and snapshots before full verification.
+- Before broad patches against files edited earlier in a task, reread the relevant section and keep edits focused.
+- Follow repository guidance and installed skills first; consult broad vendor documentation only for a concrete unresolved version or failure question.
+- Standalone `pnpm db:test`, `pnpm auth:test`, and `pnpm authorization:test` prepare their prerequisites. Their `*:prepared` counterparts are internal to full verification and assume generation/build already passed.
+
 ## UI verification
 
 For web-facing UI changes:

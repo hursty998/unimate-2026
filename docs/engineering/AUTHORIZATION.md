@@ -40,7 +40,8 @@ scope ID.
 Every API operation declares an access posture: public, authenticated, or
 capability-authorised. The global `AuthenticationGuard` remains responsible for
 identity and runs before the route-scoped `AuthorizationGuard` installed by
-`@RequireCapability(...)`.
+`@RequireCapability(...)`. A method-level posture overrides its controller-level
+posture; each declaration level may declare only one posture.
 
 - Missing or invalid authentication returns `401`.
 - A verified principal without the required exact grant returns `403`.

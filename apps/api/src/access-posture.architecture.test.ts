@@ -1,27 +1,16 @@
+import "reflect-metadata";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { relative, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import * as ts from "typescript";
+import { Controller, Get } from "@nestjs/common";
+import { API_ACCESS_POSTURE_METADATA } from "./modules/auth/access-posture.decorator.js";
+import { analyzeAccessPostureSource } from "./test-support/access-posture-source-analysis.js";
+import { Capabilities } from "@unimate/authorization";
+import { RequireCapability } from "./modules/authorization/require-capability.decorator.js";
 
 const sourceDirectory = fileURLToPath(new URL("../src/", import.meta.url));
-const operationDecorators = new Set([
-  "Implement",
-  "Get",
-  "Post",
-  "Put",
-  "Patch",
-  "Delete",
-  "Options",
-  "Head",
-  "All",
-]);
-const postureDecorators = new Set([
-  "Public",
-  "Authenticated",
-  "RequireCapability",
-]);
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -39,90 +28,90 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
-function decoratorName(decorator: ts.Decorator): string | undefined {
-  const expression = decorator.expression;
-  const target = ts.isCallExpression(expression)
-    ? expression.expression
-    : expression;
-
-  if (ts.isIdentifier(target)) {
-    return target.text;
-  }
-
-  if (ts.isPropertyAccessExpression(target)) {
-    return target.name.text;
-  }
-
-  return undefined;
-}
-
-function decoratorsOn(node: ts.Node): readonly ts.Decorator[] {
-  return ts.canHaveDecorators(node) ? (ts.getDecorators(node) ?? []) : [];
-}
-
-function hasAnyDecorator(
-  decorators: readonly ts.Decorator[],
-  names: Set<string>,
-): boolean {
-  return decorators.some((decorator) => {
-    const name = decoratorName(decorator);
-    return name !== undefined && names.has(name);
-  });
-}
-
-test("every production API operation declares an access posture", () => {
+test("every production API operation has one effective access posture", () => {
   let operationCount = 0;
 
   for (const path of sourceFiles(sourceDirectory)) {
-    const source = readFileSync(path, "utf8");
-    const sourceFile = ts.createSourceFile(
-      path,
-      source,
-      ts.ScriptTarget.Latest,
-      true,
-      ts.ScriptKind.TS,
+    const { operationCount: fileOperationCount, issues } =
+      analyzeAccessPostureSource(readFileSync(path, "utf8"), path);
+    operationCount += fileOperationCount;
+
+    assert.deepEqual(
+      issues,
+      [],
+      issues
+        .map(
+          ({ line, message }) =>
+            `${relative(sourceDirectory, path)}:${line} ${message}`,
+        )
+        .join("\n"),
     );
-
-    const visit = (node: ts.Node) => {
-      if (
-        ts.isClassDeclaration(node) &&
-        hasAnyDecorator(decoratorsOn(node), new Set(["Controller"]))
-      ) {
-        const classDeclaresPosture = hasAnyDecorator(
-          decoratorsOn(node),
-          postureDecorators,
-        );
-
-        for (const member of node.members) {
-          if (!ts.isMethodDeclaration(member)) {
-            continue;
-          }
-
-          const memberDecorators = decoratorsOn(member);
-          if (!hasAnyDecorator(memberDecorators, operationDecorators)) {
-            continue;
-          }
-
-          operationCount += 1;
-          const declaresPosture =
-            classDeclaresPosture ||
-            hasAnyDecorator(memberDecorators, postureDecorators);
-          const position = sourceFile.getLineAndCharacterOfPosition(
-            member.pos,
-          ).line;
-
-          assert.ok(
-            declaresPosture,
-            `${relative(sourceDirectory, path)}:${position + 1} ${member.name?.getText(sourceFile) ?? "operation"} must declare @Public(), @Authenticated(), or @RequireCapability().`,
-          );
-        }
-      }
-
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
   }
 
   assert.ok(operationCount > 0, "No production API operations were found.");
+});
+
+test("source analysis rejects an operation with no posture", () => {
+  const result = analyzeAccessPostureSource(
+    "@Controller()\nclass ExampleController {\n  @Get()\n  action() {}\n}",
+    "fixture.ts",
+  );
+
+  assert.ok(result.issues.some((issue) => issue.declaration === "operation"));
+});
+
+test("one method posture passes and multiple method postures fail", () => {
+  const valid = analyzeAccessPostureSource(
+    "@Controller()\nclass ExampleController {\n  @Get()\n  @Public()\n  action() {}\n}",
+    "fixture.ts",
+  );
+  const conflicting = analyzeAccessPostureSource(
+    "@Controller()\nclass ExampleController {\n  @Get()\n  @Public()\n  @Authenticated()\n  action() {}\n}",
+    "fixture.ts",
+  );
+
+  assert.deepEqual(valid.issues, []);
+  assert.ok(
+    conflicting.issues.some((issue) => issue.declaration === "operation"),
+  );
+});
+
+test("one controller posture passes and a method posture overrides it", () => {
+  const classPosture = analyzeAccessPostureSource(
+    "@Authenticated()\n@Controller()\nclass ExampleController {\n  @Get()\n  action() {}\n}",
+    "fixture.ts",
+  );
+  const methodOverride = analyzeAccessPostureSource(
+    "@Authenticated()\n@Controller()\nclass ExampleController {\n  @Get()\n  @Public()\n  publicOverride() {}\n\n  @Get()\n  @RequireCapability('platform.authorization.manage')\n  authorizedOverride() {}\n}",
+    "fixture.ts",
+  );
+
+  assert.deepEqual(classPosture.issues, []);
+  assert.deepEqual(methodOverride.issues, []);
+});
+
+test("conflicting controller postures fail even when a method overrides them", () => {
+  const result = analyzeAccessPostureSource(
+    "@Public()\n@Authenticated()\n@Controller()\nclass ExampleController {\n  @Get()\n  @Public()\n  action() {}\n}",
+    "fixture.ts",
+  );
+
+  assert.ok(result.issues.some((issue) => issue.declaration === "controller"));
+});
+
+@Controller()
+class CapabilityPostureFixture {
+  @Get()
+  @RequireCapability(Capabilities.PLATFORM_AUTHORIZATION_MANAGE)
+  action() {}
+}
+
+test("RequireCapability declares AUTHORISED posture metadata", () => {
+  assert.equal(
+    Reflect.getMetadata(
+      API_ACCESS_POSTURE_METADATA,
+      CapabilityPostureFixture.prototype.action,
+    ),
+    "AUTHORISED",
+  );
 });
