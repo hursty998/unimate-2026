@@ -20,7 +20,7 @@ import type { TelemetryProvider } from "@unimate/observability";
 import { processQueueMessage } from "./consumer.js";
 import { createFoundationTaskHandler } from "./foundation-task-handler.js";
 import { dispatchOutboxBatch } from "./outbox-dispatcher.js";
-import { registerJobHandler } from "./registry.js";
+import { createJobHandlerRegistry, registerJobHandler } from "./registry.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
 const queueDatabaseUrl = process.env["SUPABASE_TEST_DATABASE_URL"];
@@ -113,6 +113,8 @@ function observeEnqueues(queue: JobQueue, envelopes: JsonValue[]): JobQueue {
 function spawnWorkerOnce(config: {
   readonly queueName: string;
   readonly queueDatabaseUrl: string;
+  readonly databaseUrl?: string;
+  readonly expectFailure?: boolean;
 }): void {
   const result = spawnSync(
     process.execPath,
@@ -123,7 +125,7 @@ function spawnWorkerOnce(config: {
       timeout: 30_000,
       env: {
         ...process.env,
-        DATABASE_URL: databaseUrl,
+        DATABASE_URL: config.databaseUrl ?? databaseUrl,
         QUEUE_DATABASE_URL: config.queueDatabaseUrl,
         QUEUE_NAME: config.queueName,
         QUEUE_VISIBILITY_TIMEOUT_SECONDS: "1",
@@ -135,8 +137,13 @@ function spawnWorkerOnce(config: {
   );
 
   assert.equal(result.error, undefined, result.stderr);
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, config.expectFailure ? 1 : 0, result.stderr);
   assert.match(result.stdout, /Worker cycle complete:/);
+  if (config.expectFailure) {
+    assert.match(result.stdout, /received=1/);
+    assert.match(result.stdout, /deadLettered=1/);
+    assert.match(result.stderr, /Worker outbox dispatch failed/);
+  }
 }
 
 test("proves atomic outbox dispatch, concurrency, local consumption, and at-least-once recovery", async () => {
@@ -350,6 +357,21 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
           [],
         );
 
+        await queue.enqueue({ malformed: true });
+        spawnWorkerOnce({
+          queueName,
+          queueDatabaseUrl,
+          databaseUrl: "postgresql://worker:local@127.0.0.1:1/postgres",
+          expectFailure: true,
+        });
+        assert.deepEqual(
+          await queue.receive({
+            visibilityTimeoutSeconds: 0,
+            limit: 10,
+          }),
+          [],
+        );
+
         const retryEnvelope = jobEnvelopeSchema.parse({
           id: randomUUID(),
           type: foundationJobType,
@@ -379,7 +401,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
             message: firstDelivery,
             queue,
             telemetry,
-            handlers: [injectedRetryHandler],
+            registry: createJobHandlerRegistry([injectedRetryHandler]),
             maximumAttempts: 3,
           }),
           "retrying",
@@ -395,7 +417,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
             message: redelivery,
             queue,
             telemetry,
-            handlers: [injectedRetryHandler],
+            registry: createJobHandlerRegistry([injectedRetryHandler]),
             maximumAttempts: 3,
           }),
           "acknowledged",
@@ -427,7 +449,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
             message: exhaustedDelivery,
             queue,
             telemetry,
-            handlers: [alwaysFailsHandler],
+            registry: createJobHandlerRegistry([alwaysFailsHandler]),
             maximumAttempts: 1,
           }),
           "dead-lettered",
@@ -454,7 +476,9 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
             message: permanentDelivery,
             queue,
             telemetry,
-            handlers: [createFoundationTaskHandler(database)],
+            registry: createJobHandlerRegistry([
+              createFoundationTaskHandler(database),
+            ]),
             maximumAttempts: 5,
           }),
           "dead-lettered",
@@ -475,7 +499,9 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
             message: malformedDelivery,
             queue,
             telemetry,
-            handlers: [createFoundationTaskHandler(database)],
+            registry: createJobHandlerRegistry([
+              createFoundationTaskHandler(database),
+            ]),
             maximumAttempts: 5,
           }),
           "dead-lettered",
@@ -516,7 +542,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
             message: ackFailureDelivery,
             queue: acknowledgementFailureQueue,
             telemetry,
-            handlers: [foundationHandler],
+            registry: createJobHandlerRegistry([foundationHandler]),
             maximumAttempts: 3,
           }),
           "retrying",
@@ -539,7 +565,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
             message: ackRedelivery,
             queue: acknowledgementFailureQueue,
             telemetry,
-            handlers: [foundationHandler],
+            registry: createJobHandlerRegistry([foundationHandler]),
             maximumAttempts: 3,
           }),
           "acknowledged",

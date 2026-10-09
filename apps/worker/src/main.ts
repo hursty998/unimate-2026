@@ -3,8 +3,14 @@ import { pathToFileURL } from "node:url";
 import { parseWorkerConfig } from "./config.js";
 import { DeadLetterFailureError } from "./consumer.js";
 import { createFoundationTaskHandler } from "./foundation-task-handler.js";
+import { dispatchOutboxBatch } from "./outbox-dispatcher.js";
 import { createWorkerProviders } from "./providers/worker-providers.js";
-import { runWorkerContinuously, runWorkerCycle } from "./runtime.js";
+import { createJobHandlerRegistry } from "./registry.js";
+import {
+  runWorkerContinuously,
+  runWorkerCycle,
+  type WorkerCycleFailure,
+} from "./runtime.js";
 
 function parseArguments(arguments_: readonly string[]): { once: boolean } {
   if (arguments_.length === 0) {
@@ -18,21 +24,30 @@ function parseArguments(arguments_: readonly string[]): { once: boolean } {
   throw new TypeError("Worker accepts only the optional --once argument.");
 }
 
-function reportCycleError(error: unknown): void {
-  if (error instanceof DeadLetterFailureError) {
+function reportCycleFailure({ stage, cause }: WorkerCycleFailure): void {
+  if (stage === "outbox-dispatch") {
+    const failureKind =
+      cause instanceof Error ? cause.name : "unknown worker error";
+    console.error(
+      `Worker outbox dispatch failed (${failureKind}); queued work will still be consumed.`,
+    );
+    return;
+  }
+
+  if (cause instanceof DeadLetterFailureError) {
     console.error(
       "Worker could not dead-letter a message; it remains active for recovery.",
     );
     return;
   }
 
-  if (error instanceof JobQueueError) {
-    console.error(`Worker queue ${error.operation} failed (${error.kind}).`);
+  if (cause instanceof JobQueueError) {
+    console.error(`Worker queue ${cause.operation} failed (${cause.kind}).`);
     return;
   }
 
   const failureKind =
-    error instanceof Error ? error.name : "unknown worker error";
+    cause instanceof Error ? cause.name : "unknown worker error";
   console.error(
     `Worker cycle failed (${failureKind}); retrying after the poll interval.`,
   );
@@ -64,11 +79,15 @@ export async function main(
   const { once } = parseArguments(arguments_);
   const config = parseWorkerConfig(process.env);
   const { database, queue, telemetry } = createWorkerProviders(config);
+  const registry = createJobHandlerRegistry([
+    createFoundationTaskHandler(database),
+  ]);
   const dependencies = {
-    database,
+    dispatchOutbox: (limit: number) =>
+      dispatchOutboxBatch({ database, queue, telemetry, limit }),
     queue,
     telemetry,
-    handlers: [createFoundationTaskHandler(database)],
+    registry,
     config,
   };
   const abortController = new AbortController();
@@ -83,6 +102,12 @@ export async function main(
       console.info(
         `Worker cycle complete: dispatched=${result.dispatched}, received=${result.received}, acknowledged=${result.acknowledged}, retrying=${result.retrying}, deadLettered=${result.deadLettered}, deadLetterFailures=${result.deadLetterFailures}.`,
       );
+      for (const failure of result.failures) {
+        reportCycleFailure(failure);
+      }
+      if (result.failures.length > 0 || result.deadLetterFailures > 0) {
+        process.exitCode = 1;
+      }
       return;
     }
 
@@ -90,7 +115,7 @@ export async function main(
       config,
       signal: abortController.signal,
       runCycle: () => runWorkerCycle(dependencies),
-      onCycleError: reportCycleError,
+      onCycleFailure: reportCycleFailure,
     });
   } finally {
     process.removeListener("SIGINT", onSignal);

@@ -1,6 +1,37 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
+const workerProviderAdapterPattern = {
+  group: [
+    "@unimate/storage/supabase",
+    "@unimate/storage/supabase/**",
+    "@unimate/queue/supabase",
+    "@unimate/queue/supabase/**",
+    "@unimate/notifications/expo",
+    "@unimate/notifications/expo/**",
+    "@unimate/observability/opentelemetry",
+    "@unimate/observability/opentelemetry/**",
+  ],
+  message:
+    "Worker business code consumes provider-neutral ports; provider adapters stay in the worker composition boundary.",
+};
+
+const workerVendorImportPattern = {
+  group: [
+    "@supabase/*",
+    "@supabase/**",
+    "@aws-sdk/*",
+    "@aws-sdk/**",
+    "pg",
+    "pg/**",
+    "expo-server-sdk",
+    "@opentelemetry/sdk-*",
+    "@opentelemetry/exporter-*",
+  ],
+  message:
+    "Worker composition uses UniMate provider adapters; vendor infrastructure SDKs stay behind provider packages.",
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -354,31 +385,7 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
-          patterns: [
-            {
-              group: [
-                "@unimate/storage/supabase",
-                "@unimate/storage/supabase/**",
-                "@unimate/queue/supabase",
-                "@unimate/queue/supabase/**",
-                "@unimate/notifications/expo",
-                "@unimate/notifications/expo/**",
-                "@unimate/observability/opentelemetry",
-                "@unimate/observability/opentelemetry/**",
-                "@supabase/*",
-                "@supabase/**",
-                "@aws-sdk/*",
-                "@aws-sdk/**",
-                "pg",
-                "pg/**",
-                "expo-server-sdk",
-                "@opentelemetry/sdk-*",
-                "@opentelemetry/exporter-*",
-              ],
-              message:
-                "Worker business code consumes provider-neutral ports; concrete provider adapters stay behind provider boundaries.",
-            },
-          ],
+          patterns: [workerProviderAdapterPattern, workerVendorImportPattern],
         },
       ],
     },
@@ -386,7 +393,12 @@ export default tseslint.config(
   {
     files: ["apps/worker/src/providers/**/*.{js,jsx,ts,tsx}"],
     rules: {
-      "no-restricted-imports": "off",
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [workerVendorImportPattern],
+        },
+      ],
     },
   },
   {

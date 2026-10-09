@@ -50,6 +50,11 @@ the envelope, then resolves an explicit type/version handler whose versioned
 payload schema is strict. Malformed, unknown, or unsupported jobs are
 permanent failures and never reach a handler.
 
+Once a job type/version may exist in the outbox, active queue, or archive, its
+payload meaning is immutable: incompatible changes require a new version.
+Keep old handlers while work for those versions may remain; removing one
+requires an explicit operational or migration decision.
+
 The only foundation job is `foundation.task.complete` version 1. Its payload
 contains only the stable `taskId`. The handler completes an existing
 foundation task only while `completedAt` is null; redelivery is a successful
@@ -69,16 +74,29 @@ from active delivery and retains provider data as an operational archive
 record. If archiving fails, the worker does not acknowledge the active message.
 Replay and queue administration tooling are deferred.
 
-If a handler succeeds but acknowledgement fails, the side effect is not undone.
-The message may return after its visibility timeout and the handler must safely
-run again.
+After a handler succeeds, an acknowledgement result of `false` means the
+message is already absent/finalised. If acknowledgement throws, its state is
+uncertain: do not dead-letter because of the delivery limit; leave the message
+unacknowledged and allow possible redelivery. The side effect is not undone,
+and handler idempotency makes that redelivery safe. Maximum attempts bound
+repeated processing failures, not an otherwise successful handler's ambiguous
+acknowledgement.
 
 ## Runtime and observability
 
-The worker dispatches outbox work, then receives a bounded batch and processes
-messages sequentially. `--once` runs one deterministic cycle. Continuous mode
-waits between empty/error cycles, handles SIGINT/SIGTERM, and closes its
-database and queue clients.
+The worker attempts outbox dispatch and then consumes already-queued messages
+even if dispatch failed. Cycle results retain dispatch/consume failures for
+reporting; continuous mode backs off after a failed cycle, and `--once` reports
+failure after its queue-consumption attempt.
+
+`WORKER_BATCH_SIZE` is the per-cycle maximum. The worker receives at most one
+message immediately before processing it, then repeats sequentially so later
+messages are not reserved while waiting behind a handler. A handler should
+normally finish within the configured visibility timeout. Duplicate delivery
+remains possible and handlers remain idempotent; visibility extension/leases
+may be added later if genuinely long-running jobs require them. `--once` runs
+one deterministic cycle. Continuous mode waits between empty/error cycles,
+handles SIGINT/SIGTERM, and closes its database and queue clients.
 
 Worker spans cover outbox dispatch and job processing. Attributes are limited
 to identifiers and delivery metadata such as `outbox.id`, `job.id`, `job.type`,

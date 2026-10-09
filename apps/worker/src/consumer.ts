@@ -7,7 +7,7 @@ import type {
 } from "@unimate/queue";
 import type { TelemetryProvider } from "@unimate/observability";
 import { PermanentJobError } from "./permanent-job-error.js";
-import { resolveJobHandler, type RegisteredJobHandler } from "./registry.js";
+import type { JobHandlerRegistry, RegisteredJobHandler } from "./registry.js";
 
 export type MessageProcessingOutcome =
   "acknowledged" | "retrying" | "dead-lettered" | "dead-letter-failed";
@@ -55,13 +55,13 @@ export async function processQueueMessage({
   message,
   queue,
   telemetry,
-  handlers,
+  registry,
   maximumAttempts,
 }: {
   readonly message: ReceivedQueueMessage;
   readonly queue: JobQueue;
   readonly telemetry: TelemetryProvider;
-  readonly handlers: readonly RegisteredJobHandler[];
+  readonly registry: JobHandlerRegistry;
   readonly maximumAttempts: number;
 }): Promise<MessageProcessingOutcome> {
   if (
@@ -98,11 +98,7 @@ export async function processQueueMessage({
 
       let handler: RegisteredJobHandler;
       try {
-        handler = resolveJobHandler(
-          handlers,
-          envelope.data.type,
-          envelope.data.version,
-        );
+        handler = registry.resolve(envelope.data.type, envelope.data.version);
       } catch (error) {
         if (!(error instanceof PermanentJobError)) {
           throw error;
@@ -134,32 +130,15 @@ export async function processQueueMessage({
       }
 
       try {
-        if (await queue.acknowledge(message.id)) {
-          return "acknowledged";
-        }
+        await queue.acknowledge(message.id);
+        return "acknowledged";
       } catch {
         span.setStatus({
           code: SpanStatusCode.ERROR,
           message: "Queue acknowledgement failed.",
         });
-
-        if (message.deliveryCount >= maximumAttempts) {
-          return deadLetterAfterFailure(queue, message.id, span);
-        }
-
         return "retrying";
       }
-
-      span.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: "Queue acknowledgement failed.",
-      });
-
-      if (message.deliveryCount >= maximumAttempts) {
-        return deadLetterAfterFailure(queue, message.id, span);
-      }
-
-      return "retrying";
     },
   });
 }

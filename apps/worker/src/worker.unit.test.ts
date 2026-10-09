@@ -13,8 +13,12 @@ import { test } from "node:test";
 import { processQueueMessage, shouldDeadLetter } from "./consumer.js";
 import { parseWorkerConfig } from "./config.js";
 import { PermanentJobError } from "./permanent-job-error.js";
-import { registerJobHandler, type RegisteredJobHandler } from "./registry.js";
-import { runWorkerContinuously } from "./runtime.js";
+import {
+  createJobHandlerRegistry,
+  registerJobHandler,
+  type RegisteredJobHandler,
+} from "./registry.js";
+import { runWorkerContinuously, runWorkerCycle } from "./runtime.js";
 
 const jobId = "0199f4ad-6789-7abc-8def-0123456789ab";
 const taskId = "0199f4ad-6789-7abc-8def-1123456789ab";
@@ -75,6 +79,7 @@ function createQueue() {
     acknowledgements: [] as QueueMessageId[],
     deadLetters: [] as QueueMessageId[],
     acknowledgementFailure: undefined as unknown,
+    acknowledgementResult: true,
     deadLetterFailure: undefined as unknown,
     deadLetterResult: true,
   };
@@ -90,7 +95,7 @@ function createQueue() {
       if (state.acknowledgementFailure !== undefined) {
         throw state.acknowledgementFailure;
       }
-      return true;
+      return state.acknowledgementResult;
     },
     async deadLetter(id) {
       state.deadLetters.push(id);
@@ -117,12 +122,27 @@ function createMessage(
 
 function createTestHandler(
   handle: (input: { id: string; payload: { taskId: string } }) => Promise<void>,
+  type = FOUNDATION_TASK_COMPLETION_JOB_TYPE,
+  version = 1,
 ): RegisteredJobHandler {
   return registerJobHandler({
-    type: FOUNDATION_TASK_COMPLETION_JOB_TYPE,
-    version: 1,
+    type,
+    version,
     payloadSchema: z.object({ taskId: z.uuid() }).strict(),
     handle,
+  });
+}
+
+function createRegistry(handler: RegisteredJobHandler) {
+  return createJobHandlerRegistry([handler]);
+}
+
+function workerConfig(batchSize = 2) {
+  return parseWorkerConfig({
+    DATABASE_URL: "postgresql://worker:local@127.0.0.1:55322/postgres",
+    QUEUE_DATABASE_URL: "postgresql://worker:local@127.0.0.1:55322/postgres",
+    WORKER_BATCH_SIZE: String(batchSize),
+    WORKER_POLL_INTERVAL_MS: "30000",
   });
 }
 
@@ -139,7 +159,7 @@ test("validates payload before invoking a handler and acknowledges success", asy
       message: createMessage(),
       queue,
       telemetry: createTelemetry(records),
-      handlers: [handler],
+      registry: createRegistry(handler),
       maximumAttempts: 5,
     }),
     "acknowledged",
@@ -151,6 +171,26 @@ test("validates payload before invoking a handler and acknowledges success", asy
   assert.equal(records[0]?.attributes.has("job.id"), true);
   assert.equal(records[0]?.attributes.has("queue.message_id"), true);
   assert.equal(records[0]?.attributes.has("job.payload"), false);
+});
+
+test("handler registry rejects duplicates but accepts multiple versions", () => {
+  const first = createTestHandler(async () => {});
+  const secondVersion = createTestHandler(
+    async () => {},
+    FOUNDATION_TASK_COMPLETION_JOB_TYPE,
+    2,
+  );
+  const registry = createJobHandlerRegistry([first, secondVersion]);
+
+  assert.equal(registry.resolve(first.type, first.version), first);
+  assert.equal(
+    registry.resolve(secondVersion.type, secondVersion.version),
+    secondVersion,
+  );
+  assert.throws(
+    () => createJobHandlerRegistry([first, first]),
+    /Duplicate job handler registration/,
+  );
 });
 
 test("malformed payloads, unknown types, and unsupported versions fail closed", async () => {
@@ -175,7 +215,7 @@ test("malformed payloads, unknown types, and unsupported versions fail closed", 
         message,
         queue,
         telemetry: createTelemetry(),
-        handlers: [handler],
+        registry: createRegistry(handler),
         maximumAttempts: 5,
       }),
       "dead-lettered",
@@ -198,7 +238,7 @@ test("retries handler failures through redelivery and dead-letters at the limit"
       message: createMessage(validEnvelope, 1),
       queue,
       telemetry: createTelemetry(),
-      handlers: [handler],
+      registry: createRegistry(handler),
       maximumAttempts: 2,
     }),
     "retrying",
@@ -211,7 +251,7 @@ test("retries handler failures through redelivery and dead-letters at the limit"
       message: createMessage(validEnvelope, 2),
       queue,
       telemetry: createTelemetry(),
-      handlers: [handler],
+      registry: createRegistry(handler),
       maximumAttempts: 2,
     }),
     "dead-lettered",
@@ -230,7 +270,7 @@ test("permanent handler failures dead-letter immediately", async () => {
       message: createMessage(validEnvelope, 1),
       queue,
       telemetry: createTelemetry(),
-      handlers: [handler],
+      registry: createRegistry(handler),
       maximumAttempts: 5,
     }),
     "dead-lettered",
@@ -239,7 +279,29 @@ test("permanent handler failures dead-letter immediately", async () => {
   assert.deepEqual(state.acknowledgements, []);
 });
 
-test("acknowledgement failure leaves a successful side effect safe to redeliver", async () => {
+test("acknowledgement returning false treats the successful job as finalised", async () => {
+  const { queue, state } = createQueue();
+  state.acknowledgementResult = false;
+  let sideEffectCount = 0;
+  const handler = createTestHandler(async () => {
+    sideEffectCount += 1;
+  });
+
+  assert.equal(
+    await processQueueMessage({
+      message: createMessage(validEnvelope, 5),
+      queue,
+      telemetry: createTelemetry(),
+      registry: createRegistry(handler),
+      maximumAttempts: 5,
+    }),
+    "acknowledged",
+  );
+  assert.equal(sideEffectCount, 1);
+  assert.deepEqual(state.deadLetters, []);
+});
+
+test("acknowledgement throws below max attempts and preserves idempotent redelivery", async () => {
   const { queue, state } = createQueue();
   const completedTasks = new Set<string>();
   let handlerInvocations = 0;
@@ -254,7 +316,7 @@ test("acknowledgement failure leaves a successful side effect safe to redeliver"
       message: createMessage(),
       queue,
       telemetry: createTelemetry(),
-      handlers: [handler],
+      registry: createRegistry(handler),
       maximumAttempts: 3,
     }),
     "retrying",
@@ -267,13 +329,36 @@ test("acknowledgement failure leaves a successful side effect safe to redeliver"
       message: createMessage(validEnvelope, 2),
       queue,
       telemetry: createTelemetry(),
-      handlers: [handler],
+      registry: createRegistry(handler),
       maximumAttempts: 3,
     }),
     "acknowledged",
   );
   assert.equal(handlerInvocations, 2);
   assert.equal(completedTasks.size, 1);
+  assert.deepEqual(state.deadLetters, []);
+});
+
+test("acknowledgement throw at max attempts does not dead-letter completed work", async () => {
+  const { queue, state } = createQueue();
+  state.acknowledgementFailure = new Error("uncertain acknowledgement");
+  let sideEffectCount = 0;
+  const handler = createTestHandler(async () => {
+    sideEffectCount += 1;
+  });
+
+  assert.equal(
+    await processQueueMessage({
+      message: createMessage(validEnvelope, 5),
+      queue,
+      telemetry: createTelemetry(),
+      registry: createRegistry(handler),
+      maximumAttempts: 5,
+    }),
+    "retrying",
+  );
+  assert.equal(sideEffectCount, 1);
+  assert.deepEqual(state.deadLetters, []);
 });
 
 test("failed dead-lettering leaves the active message unacknowledged", async () => {
@@ -294,7 +379,7 @@ test("failed dead-lettering leaves the active message unacknowledged", async () 
         message: createMessage(),
         queue,
         telemetry: createTelemetry(),
-        handlers: [handler],
+        registry: createRegistry(handler),
         maximumAttempts: 5,
       }),
       "dead-letter-failed",
@@ -309,16 +394,113 @@ test("classifies permanent and exhausted failures for dead-lettering", () => {
   assert.equal(shouldDeadLetter(new PermanentJobError("invalid"), 1, 3), true);
 });
 
+test("outbox dispatch failure remains visible while queued work is consumed", async () => {
+  const { queue, state } = createQueue();
+  let receiveCount = 0;
+  let handlerCalls = 0;
+  queue.receive = async () => {
+    receiveCount += 1;
+    return receiveCount === 1 ? [createMessage()] : [];
+  };
+  const handler = createTestHandler(async () => {
+    handlerCalls += 1;
+  });
+  const dispatchFailure = new Error("injected outbox failure");
+  const result = await runWorkerCycle({
+    dispatchOutbox: async () => {
+      throw dispatchFailure;
+    },
+    queue,
+    telemetry: createTelemetry(),
+    registry: createRegistry(handler),
+    config: workerConfig(),
+  });
+
+  assert.equal(handlerCalls, 1);
+  assert.equal(state.acknowledgements.length, 1);
+  assert.equal(result.received, 1);
+  assert.equal(result.failures.length, 1);
+  assert.equal(result.failures[0]?.stage, "outbox-dispatch");
+  assert.equal(result.failures[0]?.cause, dispatchFailure);
+});
+
+test("receives the next message only after the preceding handler finishes", async () => {
+  const { queue } = createQueue();
+  const handledTaskIds: string[] = [];
+  const taskIds = [taskId, "0199f4ad-6789-7abc-8def-2123456789ab"];
+  let receiveCount = 0;
+  queue.receive = async ({ limit }) => {
+    assert.equal(limit, 1);
+    assert.equal(handledTaskIds.length, receiveCount);
+    if (receiveCount === taskIds.length) {
+      return [];
+    }
+
+    const message = createMessage({
+      ...validEnvelope,
+      payload: { taskId: taskIds[receiveCount]! },
+    });
+    receiveCount += 1;
+    return [message];
+  };
+  const handler = createTestHandler(async ({ payload }) => {
+    handledTaskIds.push(payload.taskId);
+  });
+  const result = await runWorkerCycle({
+    dispatchOutbox: async () => 0,
+    queue,
+    telemetry: createTelemetry(),
+    registry: createRegistry(handler),
+    config: workerConfig(2),
+  });
+
+  assert.deepEqual(handledTaskIds, taskIds);
+  assert.equal(result.received, 2);
+  assert.equal(receiveCount, 2);
+});
+
+test("continuous mode reports dispatch failures and backs off after the cycle", async () => {
+  const controller = new AbortController();
+  let cycleCount = 0;
+  const observedFailures: Array<{ stage: string; cause: unknown }> = [];
+
+  await runWorkerContinuously({
+    config: workerConfig(),
+    signal: controller.signal,
+    async runCycle() {
+      cycleCount += 1;
+      return {
+        dispatched: 0,
+        received: 1,
+        acknowledged: 1,
+        retrying: 0,
+        deadLettered: 0,
+        deadLetterFailures: 0,
+        failures: [
+          {
+            stage: "outbox-dispatch",
+            cause: new Error("injected outbox failure"),
+          },
+        ],
+      };
+    },
+    onCycleFailure(failure) {
+      observedFailures.push(failure);
+      setImmediate(() => controller.abort());
+    },
+  });
+
+  assert.equal(cycleCount, 1);
+  assert.equal(observedFailures.length, 1);
+  assert.equal(observedFailures[0]?.stage, "outbox-dispatch");
+});
+
 test("continuous mode waits between idle cycles and stops cleanly on abort", async () => {
   const controller = new AbortController();
   let cycleCount = 0;
 
   await runWorkerContinuously({
-    config: parseWorkerConfig({
-      DATABASE_URL: "postgresql://worker:local@127.0.0.1:55322/postgres",
-      QUEUE_DATABASE_URL: "postgresql://worker:local@127.0.0.1:55322/postgres",
-      WORKER_POLL_INTERVAL_MS: "30000",
-    }),
+    config: workerConfig(),
     signal: controller.signal,
     async runCycle() {
       cycleCount += 1;
@@ -330,10 +512,11 @@ test("continuous mode waits between idle cycles and stops cleanly on abort", asy
         retrying: 0,
         deadLettered: 0,
         deadLetterFailures: 0,
+        failures: [],
       };
     },
-    onCycleError(error) {
-      assert.fail(`unexpected worker cycle error: ${String(error)}`);
+    onCycleFailure(failure) {
+      assert.fail(`unexpected worker cycle error: ${String(failure.cause)}`);
     },
   });
 
