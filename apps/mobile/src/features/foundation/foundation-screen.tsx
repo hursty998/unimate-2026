@@ -9,9 +9,12 @@ import {
   View,
 } from "react-native";
 import { useAuthMe } from "@/features/auth/use-auth-me";
+import { shouldShowStorageProof } from "@/features/storage-proof/storage-proof-visibility";
 import { useAuth } from "@/lib/auth/auth-context";
 import { StorageProofPanel } from "@/features/storage-proof/storage-proof-panel";
 import { useSystemHealth } from "./use-system-health";
+
+declare const __DEV__: boolean;
 
 export function FoundationScreen() {
   const auth = useAuth();
@@ -124,7 +127,9 @@ export function FoundationScreen() {
               </Pressable>
             </>
           ) : null}
-          {authMe.data ? <StorageProofPanel /> : null}
+          {shouldShowStorageProof(__DEV__, authMe.data !== undefined) ? (
+            <StorageProofPanel />
+          ) : null}
           {authError ? <Text style={styles.error}>{authError}</Text> : null}
           <Pressable
             accessibilityRole="button"

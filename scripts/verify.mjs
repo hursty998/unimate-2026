@@ -57,6 +57,11 @@ const fullSteps = [
     args: ["auth:test:prepared"],
   },
   {
+    name: "storage-proof integration",
+    command: "pnpm",
+    args: ["storage-proof:test:prepared"],
+  },
+  {
     name: "authorization integration",
     command: "pnpm",
     args: ["authorization:test:prepared"],

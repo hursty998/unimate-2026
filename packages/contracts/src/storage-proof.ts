@@ -5,6 +5,15 @@ const storageProofIdSchema = z.string().uuid();
 
 export const storageProofIssueUploadInputSchema = z.object({}).strict();
 
+const uploadHeadersSchema = z
+  .record(
+    z.string().regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/),
+    z.string().refine((value) => !/[\r\n]/.test(value)),
+  )
+  .refine((headers) => headers["content-type"] === "text/plain", {
+    message: "Storage-proof upload capabilities must require text/plain.",
+  });
+
 export const storageProofUploadPermissionResponseSchema = z
   .object({
     id: storageProofIdSchema,
@@ -12,13 +21,7 @@ export const storageProofUploadPermissionResponseSchema = z
       .object({
         url: z.string().url(),
         method: z.literal("PUT"),
-        headers: z
-          .object({
-            "content-type": z.literal("text/plain"),
-            "cache-control": z.string().min(1),
-            "x-upsert": z.literal("false"),
-          })
-          .strict(),
+        headers: uploadHeadersSchema,
         expiresAt: z.iso.datetime(),
       })
       .strict(),

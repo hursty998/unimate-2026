@@ -27,9 +27,13 @@ task
 -> handoff
 ```
 
-Use the smallest useful checks while implementing, then deeply review the
-changed code and diff before the retrospective and final verification. For
-substantial tasks, run the retrospective before final verification. Persist
+Use focused package/module formatting, lint, typecheck, and tests as inner-loop
+checks. Treat `pnpm verify:changed` as a milestone after implementation and
+deep changed-code review, not as an inner-loop formatter/linter to rerun after
+each narrow edit. When changing environment examples or credential boundaries,
+run `pnpm secrets:check` early rather than deferring it to full verification.
+
+For substantial tasks, run the retrospective before final verification. Persist
 durable findings, fix resulting issues, and run `pnpm verify:changed` when its
 affected-task feedback is useful. Then run exactly one canonical `pnpm verify`
 on the final working tree. Do not run another retrospective after that verify.

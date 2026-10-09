@@ -17,6 +17,11 @@ export class AppModule {
     config: ApiConfig,
     authOverrides: AuthModuleOverrides = {},
   ): DynamicModule {
+    const storageProofModules =
+      config.nodeEnv === "production"
+        ? []
+        : [ObjectStorageModule.register(config), StorageProofModule];
+
     return {
       module: AppModule,
       imports: [
@@ -25,8 +30,7 @@ export class AppModule {
         SystemModule,
         AuthModule.register(config, authOverrides),
         AuthorizationModule,
-        ObjectStorageModule.register(config),
-        StorageProofModule,
+        ...storageProofModules,
       ],
     };
   }

@@ -57,7 +57,7 @@
     "web": "expo start --web",
     "build": "expo export --platform web",
     "lint": "eslint .",
-    "test": "node --test src/lib/auth/secure-session-storage.test.ts src/lib/auth/sign-out.test.ts src/lib/network/endpoint-url.test.ts src/lib/network/storage-capability-url.test.ts",
+    "test": "node --test src/lib/auth/secure-session-storage.test.ts src/lib/auth/sign-out.test.ts src/lib/network/endpoint-url.test.ts src/lib/network/storage-capability-url.test.ts src/features/storage-proof/storage-proof-visibility.test.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit"
   },
   "private": true

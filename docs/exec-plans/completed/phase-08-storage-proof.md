@@ -21,6 +21,12 @@ This is a synthetic foundation feature, not a product media API.
   cascade cannot orphan provider bytes; the owning feature deletes bytes first.
 - Enforce proof-object ownership in the feature application service after the
   existing authenticated-principal-to-User resolution.
+- Keep the synthetic proof API and ObjectStorage composition out of production;
+  show its Foundation UI only in development after identity resolution. Proof
+  storage credentials are required outside production and optional in production.
+- Forward upload capability headers generically through the provider-neutral
+  contract, validating header syntax and the proof content type without
+  embedding provider-specific header names in application code.
 - Keep upload/read capabilities temporary; client transfers go directly to
   private Storage.
 - Restrict local signed-URL origin adaptation to the recognised development
@@ -35,6 +41,9 @@ This is a synthetic foundation feature, not a product media API.
   capability output, cleanup, and local URL adaptation.
 - A local integration round-trips synthetic bytes through the real API,
   PostgreSQL, and private Supabase Storage and cleans up its own records.
+- The standalone storage-proof integration remains self-contained, while
+  canonical full verification runs its prepared form; `verify:changed` remains
+  free of local provider/database integration.
 - Runtime proof records direct Storage upload/read and byte equality on web,
   iOS Simulator, and Android emulator.
 - The forward Prisma migration replays from zero using the documented
@@ -64,6 +73,25 @@ This is a synthetic foundation feature, not a product media API.
   deleting a User is restricted until StoredObject metadata is removed.
 - The real local Auth → Nest → PostgreSQL → Storage → direct byte PUT/GET
   integration passes and cleans its own test users, rows, and objects.
+- The hardening follow-up keeps proof routes and adapter wiring out of production,
+  gates the Foundation UI to development, and preserves generic upload
+  capability headers across the ObjectStorage boundary. Its production-route,
+  configuration, header-contract, and UI-visibility tests pass.
+- The committed Phase 8 migration was reviewed and deliberately left immutable.
+  Its hand-written unqualified `ALTER TABLE "stored_objects"` is safe because
+  the Prisma migration connection is validated and configured to use the
+  `app` schema. No forward migration was needed because there is no database
+  state change to make.
+- After restoring the exact committed migration, the documented loopback-guarded
+  app-schema-only reset replayed all four migrations successfully. The seed
+  succeeded during reset and again on a second run; `pnpm db:check` confirmed
+  schema validity and current migration status, and `pnpm db:test` passed.
+- The standalone storage-proof command passes using the real local Auth, API,
+  PostgreSQL, and private Storage chain. Full verification includes the prepared
+  integration; changed verification remains local-integration-free.
+- During hardening, `pnpm secrets:check` passed early. The first
+  `verify:changed` attempt found formatting issues in two edited files; focused
+  Prettier correction followed by one milestone rerun passed.
 - Browser, iOS Simulator, and Android emulator storage flows pass. Browser
   resource entries show control requests at the API and transfer URLs at
   Storage; Android visibly confirms `10.0.2.2:55321` host mapping.

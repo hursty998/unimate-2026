@@ -10,6 +10,15 @@ import {
 @Module({})
 export class ObjectStorageModule {
   static register(config: ApiConfig): DynamicModule {
+    const secretKey = config.supabaseSecretKey;
+    const bucketName = config.supabaseStorageBucket;
+
+    if (!secretKey || !bucketName) {
+      throw new Error(
+        "Storage-proof configuration is required outside production.",
+      );
+    }
+
     return {
       module: ObjectStorageModule,
       providers: [
@@ -18,8 +27,8 @@ export class ObjectStorageModule {
           useFactory: (): ObjectStorage =>
             new SupabaseObjectStorage({
               supabaseUrl: config.supabaseUrl,
-              secretKey: config.supabaseSecretKey,
-              bucketName: config.supabaseStorageBucket,
+              secretKey,
+              bucketName,
             }),
         },
       ],

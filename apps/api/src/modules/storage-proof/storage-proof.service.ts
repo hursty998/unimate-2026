@@ -24,6 +24,34 @@ const PROOF_CONTENT_TYPE = "text/plain";
 const MAX_PROOF_SIZE_BYTES = 1024 * 1024;
 const READ_PERMISSION_LIFETIME_SECONDS = 5 * 60;
 
+function serializeUploadHeaders(
+  providerHeaders: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const headers = new Headers();
+  const seenNames = new Set<string>();
+
+  try {
+    for (const [name, value] of Object.entries(providerHeaders)) {
+      const normalizedName = name.toLowerCase();
+      if (seenNames.has(normalizedName)) {
+        throw new TypeError("Duplicate upload capability header.");
+      }
+      seenNames.add(normalizedName);
+      headers.set(name, value);
+    }
+  } catch (cause) {
+    throw new Error("Storage returned invalid upload capability headers.", {
+      cause,
+    });
+  }
+
+  if (headers.get("content-type") !== PROOF_CONTENT_TYPE) {
+    throw new Error("Storage returned an invalid proof content type.");
+  }
+
+  return Object.fromEntries(headers.entries());
+}
+
 @Injectable()
 export class StorageProofService {
   constructor(
@@ -51,29 +79,14 @@ export class StorageProofService {
         key: objectKey,
         contentType: PROOF_CONTENT_TYPE,
       });
-      const headers = permission.headers;
-
-      if (
-        headers["content-type"] !== PROOF_CONTENT_TYPE ||
-        typeof headers["cache-control"] !== "string" ||
-        headers["cache-control"].length === 0 ||
-        headers["x-upsert"] !== "false"
-      ) {
-        throw new ORPCError("INTERNAL_SERVER_ERROR", {
-          message: "The storage-proof upload permission is invalid.",
-        });
-      }
+      const headers = serializeUploadHeaders(permission.headers);
 
       return {
         id: record.id,
         upload: {
           url: permission.url,
           method: permission.method,
-          headers: {
-            "content-type": headers["content-type"],
-            "cache-control": headers["cache-control"],
-            "x-upsert": headers["x-upsert"],
-          },
+          headers,
           expiresAt: permission.expiresAt.toISOString(),
         },
       };

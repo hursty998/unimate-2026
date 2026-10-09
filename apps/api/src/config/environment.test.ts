@@ -44,3 +44,28 @@ test("API configuration supplies the documented local defaults", () => {
     },
   );
 });
+
+test("production API configuration accepts blank proof-storage settings", () => {
+  const config = parseApiConfig({
+    NODE_ENV: "production",
+    DATABASE_URL: "postgresql://localhost/postgres?schema=app",
+    SUPABASE_URL: "https://auth.unimate.example",
+    SUPABASE_SECRET_KEY: "",
+    SUPABASE_STORAGE_BUCKET: "",
+  });
+
+  assert.equal(config.supabaseSecretKey, undefined);
+  assert.equal(config.supabaseStorageBucket, undefined);
+});
+
+test("non-production API configuration requires foundation storage settings", () => {
+  assert.throws(
+    () =>
+      parseApiConfig({
+        NODE_ENV: "test",
+        DATABASE_URL: "postgresql://localhost/postgres?schema=app",
+        SUPABASE_URL: "http://127.0.0.1:55321",
+      }),
+    { name: "ZodError" },
+  );
+});

@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ORPCError } from "@orpc/server";
 import type { AuthenticatedPrincipal } from "../auth/authenticated-principal.js";
-import { storageProofIssueUploadInputSchema } from "@unimate/contracts";
+import {
+  storageProofIssueUploadInputSchema,
+  storageProofUploadPermissionResponseSchema,
+} from "@unimate/contracts";
 import type {
   ObjectKey,
   ObjectStorage,
@@ -28,9 +31,9 @@ const ownerId = "f0000000-0000-7000-8000-000000000001";
 const otherUserId = "f0000000-0000-7000-8000-000000000002";
 const proofId = "f0000000-0000-7000-8000-000000000003";
 const uploadUrl =
-  "http://127.0.0.1:55321/storage/v1/object/upload/sign/foundation-storage-proof/key.txt?token=temporary-upload-token";
+  "https://storage.example.test/upload?capability=temporary-upload-token";
 const readUrl =
-  "http://127.0.0.1:55321/storage/v1/object/sign/foundation-storage-proof/key.txt?token=temporary-read-token";
+  "https://storage.example.test/download?capability=temporary-read-token";
 
 class InMemoryStorageProofRepository implements StorageProofRepository {
   readonly records = new Map<string, StorageProofRecord>();
@@ -119,6 +122,10 @@ class FakeObjectStorage implements ObjectStorage {
   readonly readKeys: ObjectKey[] = [];
   readonly deletedKeys: ObjectKey[] = [];
   readonly objects = new Map<string, StoredObjectMetadata>();
+  uploadHeaders: Readonly<Record<string, string>> = {
+    "content-type": "text/plain",
+    "x-proof-capability": "temporary-upload-header",
+  };
   uploadError: Error | undefined;
   deleteError: Error | undefined;
 
@@ -133,11 +140,7 @@ class FakeObjectStorage implements ObjectStorage {
     return {
       url: uploadUrl,
       method: "PUT",
-      headers: {
-        "content-type": "text/plain",
-        "cache-control": "max-age=3600",
-        "x-upsert": "false",
-      },
+      headers: this.uploadHeaders,
       expiresAt: new Date("2026-10-08T14:00:00.000Z"),
     };
   }
@@ -195,6 +198,7 @@ test("issues an upload capability for a server-generated key and persists only p
   assert.equal(response.id, proofId);
   assert.equal(response.upload.url, uploadUrl);
   assert.equal(response.upload.method, "PUT");
+  assert.deepEqual(response.upload.headers, objectStorage.uploadHeaders);
   assert.deepEqual(repository.createInputs, [
     {
       creatorUserId: ownerId,
@@ -235,6 +239,49 @@ test("the issue contract accepts control JSON only, never caller-supplied bytes 
     }).success,
     false,
   );
+});
+
+test("the upload contract accepts generic safe capability headers and requires text/plain", () => {
+  const response = storageProofUploadPermissionResponseSchema.safeParse({
+    id: proofId,
+    upload: {
+      url: uploadUrl,
+      method: "PUT",
+      headers: {
+        "content-type": "text/plain",
+        "x-provider-capability": "scoped",
+      },
+      expiresAt: "2026-10-08T14:00:00.000Z",
+    },
+  });
+  assert.equal(response.success, true);
+
+  const invalidContentType =
+    storageProofUploadPermissionResponseSchema.safeParse({
+      id: proofId,
+      upload: {
+        url: uploadUrl,
+        method: "PUT",
+        headers: { "content-type": "image/png" },
+        expiresAt: "2026-10-08T14:00:00.000Z",
+      },
+    });
+  assert.equal(invalidContentType.success, false);
+
+  const invalidHeaderValue =
+    storageProofUploadPermissionResponseSchema.safeParse({
+      id: proofId,
+      upload: {
+        url: uploadUrl,
+        method: "PUT",
+        headers: {
+          "content-type": "text/plain",
+          "x-provider-capability": "safe\r\nx-injected: true",
+        },
+        expiresAt: "2026-10-08T14:00:00.000Z",
+      },
+    });
+  assert.equal(invalidHeaderValue.success, false);
 });
 
 test("another authenticated user cannot complete, read, or delete an owner's proof", async () => {
@@ -342,6 +389,21 @@ test("a failed capability request removes its pending application record", async
       error instanceof Error &&
       error.cause instanceof Error &&
       error.cause.message === "signed permission unavailable",
+  );
+  assert.equal(repository.records.size, 0);
+  assert.deepEqual(repository.events, ["repository.deletePending"]);
+});
+
+test("invalid provider capability headers fail closed and remove pending metadata", async () => {
+  const { repository, objectStorage, service } = setup();
+  objectStorage.uploadHeaders = {
+    "content-type": "text/plain",
+    "x-provider-capability": "invalid\r\nx-injected: true",
+  };
+
+  await assert.rejects(
+    service.issueUpload(owner),
+    (error: unknown) => error instanceof Error && error.cause instanceof Error,
   );
   assert.equal(repository.records.size, 0);
   assert.deepEqual(repository.events, ["repository.deletePending"]);

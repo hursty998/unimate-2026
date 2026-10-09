@@ -33,28 +33,65 @@ const postgresUrlSchema = z
     }
   }, "Expected a PostgreSQL connection URL");
 
-const apiEnvironmentSchema = z.object({
-  API_HOST: z.string().min(1).default("0.0.0.0"),
-  API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
-  API_CORS_ORIGINS: z
-    .string()
-    .default("")
-    .transform((origins) =>
-      origins
-        .split(",")
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    )
-    .pipe(z.array(httpOriginSchema)),
-  DATABASE_URL: postgresUrlSchema,
-  SUPABASE_URL: httpOriginSchema,
-  SUPABASE_JWT_AUDIENCE: z.string().trim().min(1).default("authenticated"),
-  SUPABASE_SECRET_KEY: z.string().startsWith("sb_secret_"),
-  SUPABASE_STORAGE_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,62}$/),
-});
+const optionalSupabaseSecretKeySchema = z
+  .string()
+  .optional()
+  .transform((value) => value?.trim() || undefined)
+  .pipe(z.string().startsWith("sb_secret_").optional());
+
+const optionalStorageBucketSchema = z
+  .string()
+  .optional()
+  .transform((value) => value?.trim() || undefined)
+  .pipe(
+    z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9_-]{0,62}$/)
+      .optional(),
+  );
+
+const apiEnvironmentSchema = z
+  .object({
+    API_HOST: z.string().min(1).default("0.0.0.0"),
+    API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+    NODE_ENV: z
+      .enum(["development", "test", "production"])
+      .default("development"),
+    API_CORS_ORIGINS: z
+      .string()
+      .default("")
+      .transform((origins) =>
+        origins
+          .split(",")
+          .map((origin) => origin.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(httpOriginSchema)),
+    DATABASE_URL: postgresUrlSchema,
+    SUPABASE_URL: httpOriginSchema,
+    SUPABASE_JWT_AUDIENCE: z.string().trim().min(1).default("authenticated"),
+    SUPABASE_SECRET_KEY: optionalSupabaseSecretKeySchema,
+    SUPABASE_STORAGE_BUCKET: optionalStorageBucketSchema,
+  })
+  .superRefine((environment, context) => {
+    if (environment.NODE_ENV === "production") return;
+
+    if (!environment.SUPABASE_SECRET_KEY) {
+      context.addIssue({
+        code: "custom",
+        path: ["SUPABASE_SECRET_KEY"],
+        message: "SUPABASE_SECRET_KEY is required outside production.",
+      });
+    }
+
+    if (!environment.SUPABASE_STORAGE_BUCKET) {
+      context.addIssue({
+        code: "custom",
+        path: ["SUPABASE_STORAGE_BUCKET"],
+        message: "SUPABASE_STORAGE_BUCKET is required outside production.",
+      });
+    }
+  });
 
 export type ApiConfig = {
   host: string;
@@ -64,8 +101,8 @@ export type ApiConfig = {
   databaseUrl: string;
   supabaseUrl: string;
   supabaseJwtAudience: string;
-  supabaseSecretKey: string;
-  supabaseStorageBucket: string;
+  supabaseSecretKey: string | undefined;
+  supabaseStorageBucket: string | undefined;
 };
 
 export function parseApiConfig(
