@@ -73,6 +73,7 @@ The intended monorepo is:
 │   ├── auth/
 │   ├── storage/
 │   ├── queue/
+│   ├── jobs/
 │   ├── notifications/
 │   ├── observability/
 │   ├── config/
@@ -190,20 +191,21 @@ Business workflows belong in application services/use cases.
 
 # 7. Worker
 
-`apps/worker` handles asynchronous work.
+`apps/worker` owns asynchronous dispatch and execution. Phase 9 implements
+outbox dispatch, validated job handling, retry/dead-letter policy, and process
+lifecycle.
 
 It should use the same configuration, logging, dependency-injection and infrastructure packages where practical.
 
 It does not require an HTTP server unless a later operational need justifies one.
 
-Typical responsibilities will eventually include:
+Future product-specific responsibilities may include:
 
 - push notifications;
 - email;
 - reminder delivery;
 - file processing;
 - webhook follow-up;
-- transactional outbox dispatch;
 - background maintenance.
 
 Workers must assume at-least-once delivery.
@@ -539,7 +541,11 @@ worker
 
 This eliminates the commit/enqueue race.
 
-The foundation should prove this mechanism before product features depend on it.
+Phase 9 proves this mechanism with one foundation-only task. Delivery remains
+at least once: the dispatcher may publish the same stable Outbox-derived job
+again if queue acceptance succeeds but the database transaction does not
+commit. Handlers must therefore be idempotent. See
+[`BACKGROUND_JOBS.md`](./BACKGROUND_JOBS.md) for the implementation contract.
 
 ---
 

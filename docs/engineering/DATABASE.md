@@ -26,7 +26,8 @@ Prisma CLI, Client, and PostgreSQL adapter are exact-pinned to stable Prisma ORM
 - A `UniversityAffiliation` row denotes an established affiliation. Authentication alone does not imply one.
 - Identity and affiliation rows cascade when their owning User is deleted. Deleting a University with affiliations is restricted.
 - Stored-object rows restrict User deletion until the owning application flow has deleted provider bytes and metadata, preventing cascades from orphaning objects.
-- The outbox has no dispatcher, retry, or queue implementation in this phase.
+- `FoundationAsyncTask` is synthetic Phase 9 state used only to prove atomic outbox writes and idempotent worker completion; it is not a product domain.
+- The existing `OutboxMessage` is dispatched by the worker. Its `publishedAt` records queue acceptance, not job completion; see [`BACKGROUND_JOBS.md`](./BACKGROUND_JOBS.md).
 - Positive outbox payload versions are enforced with a minimal migration check constraint because Prisma 7's schema language cannot represent it.
 
 ## Migrations, seeds, and reset

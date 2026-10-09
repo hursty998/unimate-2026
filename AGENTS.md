@@ -38,6 +38,8 @@ Use:
 
 - API contracts: `packages/contracts/`
 - Database and Prisma: `packages/database/`
+- Background-job semantics: `packages/jobs/` and
+  [`BACKGROUND_JOBS.md`](./docs/engineering/BACKGROUND_JOBS.md)
 - Authentication: `packages/auth/`
 - Authorization catalogue: `packages/authorization/`
 - Provider packages: `packages/storage/`, `packages/queue/`,

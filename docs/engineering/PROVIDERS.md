@@ -47,16 +47,20 @@ modify Storage-owned tables.
 ## Queue
 
 `@unimate/queue` exposes `JobQueue`: enqueue JSON, receive a bounded batch with
-an explicit visibility timeout, and acknowledge an opaque message ID. The
-Supabase adapter uses documented PGMQ functions (`send`, `read`, `delete`)
-through a pooled PostgreSQL connection. Queue internals are not exposed over
-PostgREST, and provider SQL stays inside `@unimate/queue/supabase`.
+an explicit visibility timeout, acknowledge an opaque message ID, and
+dead-letter a message. The Supabase adapter uses documented PGMQ functions
+(`send`, `read`, `delete`, `archive`) through a pooled PostgreSQL connection.
+Queue internals are not exposed over PostgREST, and provider SQL stays inside
+`@unimate/queue/supabase`.
 
 An unacknowledged message becomes visible again after its timeout; acknowledging
-deletes it. This is at-least-once delivery. There are no hidden retries or
-worker policies. A provider-only Supabase migration enables pgmq outside the
-Prisma-owned `app` schema. Phase 9 owns the versioned/Zod-validated job
-envelope, idempotent handlers, retry/DLQ policy, worker, and outbox dispatch.
+deletes it. Dead-lettering archives the active message; a successful archive
+stops active redelivery and retains provider data as an operational record.
+There are no hidden queue retries or handler policies. A provider-only
+Supabase migration enables pgmq and creates the durable foundation queue
+outside the Prisma-owned `app` schema. Phase 9's `apps/worker` composes the
+provider with `@unimate/jobs`, the database, and observability; details are in
+[`BACKGROUND_JOBS.md`](./BACKGROUND_JOBS.md).
 
 ## Push delivery
 
@@ -85,10 +89,11 @@ collector, exporter, metrics, or hosted observability backend is configured.
 
 Adapters receive explicit options at their server-side composition boundary:
 Supabase URL/secret/bucket for Storage, a server-only PostgreSQL connection
-string/queue name for PGMQ, and the standard Expo endpoint. Phase 8 wires only
-the storage adapter through `apps/api/src/providers`; feature code consumes
-the provider-neutral port. Never put provider credentials in `EXPO_PUBLIC_*`.
-The Storage secret is unrelated to the Phase 5 JWKS verifier.
+string/queue name for PGMQ, and the standard Expo endpoint. Phase 8 wires the
+storage adapter through `apps/api/src/providers`; Phase 9 wires queue access
+only through `apps/worker`. Feature handlers consume provider-neutral ports.
+Never put provider credentials in `EXPO_PUBLIC_*`. The Storage secret is
+unrelated to the Phase 5 JWKS verifier.
 
 `pnpm providers:test` builds and runs provider-free unit tests, ensures local
 Supabase is available, applies pending migrations with `--local`, and runs the
@@ -101,7 +106,6 @@ mocked `fetch`, and telemetry tests use an in-memory exporter.
 ## Deferred
 
 Product-specific file ownership/metadata and upload endpoints, notification
-models and preferences, device-token registration, final notification
-behaviour, email, worker execution, business jobs, the job envelope, retries/DLQ
-orchestration, outbox dispatch, and a real telemetry exporter/backend remain
-with later phases.
+models and preferences, device-token registration, push-job behaviour, email,
+business jobs, a real telemetry exporter/backend, and complete
+request-to-worker traceability remain with later phases.

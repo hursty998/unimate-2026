@@ -37,6 +37,7 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
   const prisma = createDatabaseClient({ connectionString });
   const userIds: string[] = [];
   const outboxIds: string[] = [];
+  const foundationTaskIds: string[] = [];
   const storedObjectIds: string[] = [];
   let universityId: string | undefined;
   let connected = false;
@@ -54,6 +55,9 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
 
     const suffix = randomUUID();
     const providerSubject = `integration:${suffix}`;
+    assert.equal(await prisma.outboxMessage.count(), 0);
+    assert.equal(await prisma.foundationAsyncTask.count(), 0);
+
     const user = await prisma.user.create({ data: {} });
     userIds.push(user.id);
 
@@ -196,6 +200,17 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
 
     assert.deepEqual(externalUser?.universityAffiliations, []);
 
+    const foundationTask = await prisma.foundationAsyncTask.create({
+      data: {},
+    });
+    foundationTaskIds.push(foundationTask.id);
+    assert.match(
+      foundationTask.id,
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    assert.ok(foundationTask.createdAt instanceof Date);
+    assert.equal(foundationTask.completedAt, null);
+
     const payload = {
       kind: "integration-test",
       sequence: 1,
@@ -251,6 +266,10 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
           (table_name = 'users' AND column_name IN ('id', 'created_at'))
           OR (table_name = 'outbox_messages' AND column_name IN ('id', 'payload'))
           OR (
+            table_name = 'foundation_async_tasks'
+            AND column_name IN ('id', 'created_at', 'completed_at')
+          )
+          OR (
             table_name = 'stored_objects'
             AND column_name IN (
               'id',
@@ -279,6 +298,15 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     assert.equal(columnType("users", "created_at"), "timestamp with time zone");
     assert.equal(columnType("outbox_messages", "id"), "uuid");
     assert.equal(columnType("outbox_messages", "payload"), "jsonb");
+    assert.equal(columnType("foundation_async_tasks", "id"), "uuid");
+    assert.equal(
+      columnType("foundation_async_tasks", "created_at"),
+      "timestamp with time zone",
+    );
+    assert.equal(
+      columnType("foundation_async_tasks", "completed_at"),
+      "timestamp with time zone",
+    );
     assert.equal(columnType("stored_objects", "id"), "uuid");
     assert.equal(columnType("stored_objects", "object_key"), "text");
     assert.equal(columnType("stored_objects", "creator_user_id"), "uuid");
@@ -328,6 +356,7 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
       [
         "auth_identities",
         "capability_assignments",
+        "foundation_async_tasks",
         "outbox_messages",
         "role_assignments",
         "role_capabilities",
@@ -367,6 +396,11 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
         if (outboxIds.length > 0) {
           await prisma.outboxMessage.deleteMany({
             where: { id: { in: outboxIds } },
+          });
+        }
+        if (foundationTaskIds.length > 0) {
+          await prisma.foundationAsyncTask.deleteMany({
+            where: { id: { in: foundationTaskIds } },
           });
         }
         if (storedObjectIds.length > 0) {

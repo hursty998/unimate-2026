@@ -32,9 +32,9 @@ export interface SupabaseJobQueueOptions {
 }
 
 function validateQueueName(value: string): void {
-  if (!/^[a-z0-9_-]{1,55}$/.test(value)) {
+  if (!/^[a-z0-9_-]{1,48}$/.test(value)) {
     throw new TypeError(
-      "Supabase queue names must use lowercase letters, digits, underscores, or hyphens.",
+      "Supabase queue names must use up to 48 lowercase letters, digits, underscores, or hyphens.",
     );
   }
 }
@@ -59,7 +59,7 @@ function postgresErrorCode(error: unknown): string | undefined {
 }
 
 function mapQueueError(
-  operation: "enqueue" | "receive" | "acknowledge",
+  operation: "enqueue" | "receive" | "acknowledge" | "dead-letter",
   cause: unknown,
 ): JobQueueError {
   const code = postgresErrorCode(cause);
@@ -192,6 +192,34 @@ export class SupabaseJobQueue implements JobQueue {
       }
 
       throw mapQueueError("acknowledge", cause);
+    }
+  }
+
+  async deadLetter(messageId: QueueMessageId): Promise<boolean> {
+    validateQueueMessageId(messageId);
+
+    try {
+      const result = await this.pool.query<{ dead_lettered: boolean }>(
+        "select pgmq.archive($1::text, $2::bigint) as dead_lettered",
+        [this.options.queueName, messageId],
+      );
+      const row = result.rows[0];
+
+      if (row === undefined || typeof row.dead_lettered !== "boolean") {
+        throw new JobQueueError(
+          "rejected",
+          "dead-letter",
+          new Error("Supabase Queues returned an invalid dead-letter result."),
+        );
+      }
+
+      return row.dead_lettered;
+    } catch (cause) {
+      if (cause instanceof JobQueueError) {
+        throw cause;
+      }
+
+      throw mapQueueError("dead-letter", cause);
     }
   }
 

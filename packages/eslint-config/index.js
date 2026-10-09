@@ -384,6 +384,12 @@ export default tseslint.config(
     },
   },
   {
+    files: ["apps/worker/src/providers/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
+  {
     files: ["packages/storage/**/*.{js,jsx,ts,tsx}"],
     rules: {
       "no-restricted-imports": [

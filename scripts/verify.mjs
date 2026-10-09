@@ -71,6 +71,11 @@ const fullSteps = [
     command: "pnpm",
     args: ["providers:test:prepared"],
   },
+  {
+    name: "worker integration",
+    command: "pnpm",
+    args: ["worker:test:prepared"],
+  },
 ];
 
 const changedSteps = [

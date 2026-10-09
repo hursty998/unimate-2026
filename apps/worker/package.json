@@ -1,5 +1,28 @@
 {
   "name": "@unimate/worker",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test dist/*.unit.test.js"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@unimate/database": "workspace:*",
+    "@unimate/jobs": "workspace:*",
+    "@unimate/observability": "workspace:*",
+    "@unimate/queue": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  }
 }

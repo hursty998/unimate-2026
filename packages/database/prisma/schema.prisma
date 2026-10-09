@@ -178,3 +178,12 @@ model OutboxMessage {
   @@map("outbox_messages")
   @@schema("app")
 }
+
+model FoundationAsyncTask {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+
+  @@map("foundation_async_tasks")
+  @@schema("app")
+}

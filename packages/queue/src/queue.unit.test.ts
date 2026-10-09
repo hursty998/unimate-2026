@@ -8,6 +8,7 @@ import type {
 } from "./index.js";
 import { toJsonValue } from "./json-value.js";
 import { parseQueueRow } from "./queue-row.js";
+import { SupabaseJobQueue } from "./supabase.js";
 
 test("JobQueue can be implemented by a provider-free deterministic fake", async () => {
   const messages = new Map<string, JsonValue>();
@@ -26,6 +27,9 @@ test("JobQueue can be implemented by a provider-free deterministic fake", async 
       }));
     },
     async acknowledge(id) {
+      return messages.delete(id);
+    },
+    async deadLetter(id) {
       return messages.delete(id);
     },
   };
@@ -47,6 +51,14 @@ test("JobQueue can be implemented by a provider-free deterministic fake", async 
     await queue.receive({ visibilityTimeoutSeconds: 5, limit: 1 }),
     [],
   );
+
+  const deadLetterId = await queue.enqueue(payload);
+  assert.equal(await queue.deadLetter(deadLetterId), true);
+  assert.equal(await queue.deadLetter(deadLetterId), false);
+  assert.deepEqual(
+    await queue.receive({ visibilityTimeoutSeconds: 5, limit: 1 }),
+    [],
+  );
 });
 
 test("JSON-parsed __proto__ properties round-trip as own JSON data", () => {
@@ -62,6 +74,17 @@ test("JSON-parsed __proto__ properties round-trip as own JSON data", () => {
   assert.equal(
     Object.prototype.hasOwnProperty.call(normalized, "__proto__"),
     true,
+  );
+});
+
+test("rejects queue names beyond the documented PGMQ limit", () => {
+  assert.throws(
+    () =>
+      new SupabaseJobQueue({
+        connectionString: "postgresql://worker:local@127.0.0.1/postgres",
+        queueName: "q".repeat(49),
+      }),
+    /up to 48/,
   );
 });
 

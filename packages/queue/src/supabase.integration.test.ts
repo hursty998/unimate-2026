@@ -13,7 +13,7 @@ if (connectionString === undefined) {
   );
 }
 
-test("Supabase Queues sends, reserves, redelivers, and acknowledges a message", async () => {
+test("Supabase Queues sends, reserves, redelivers, acknowledges, and dead-letters", async () => {
   const queueName = `phase7-test-${randomUUID().replaceAll("-", "")}`;
   const payload = {
     fixture: "phase7-provider-test",
@@ -49,6 +49,26 @@ test("Supabase Queues sends, reserves, redelivers, and acknowledges a message", 
       assert.deepEqual(redelivery, [{ id, payload, deliveryCount: 2 }]);
       assert.equal(await queue.acknowledge(id), true);
       assert.equal(await queue.acknowledge(id), false);
+      assert.deepEqual(
+        await queue.receive({ visibilityTimeoutSeconds: 0, limit: 1 }),
+        [],
+      );
+
+      const deadLetterId = await queue.enqueue({
+        fixture: "phase9-dead-letter",
+      });
+      assert.deepEqual(
+        await queue.receive({ visibilityTimeoutSeconds: 0, limit: 1 }),
+        [
+          {
+            id: deadLetterId,
+            payload: { fixture: "phase9-dead-letter" },
+            deliveryCount: 1,
+          },
+        ],
+      );
+      assert.equal(await queue.deadLetter(deadLetterId), true);
+      assert.equal(await queue.deadLetter(deadLetterId), false);
       assert.deepEqual(
         await queue.receive({ visibilityTimeoutSeconds: 0, limit: 1 }),
         [],

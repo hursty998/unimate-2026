@@ -11,7 +11,7 @@ export type JobQueueFailureKind = "unavailable" | "rejected";
 export class JobQueueError extends Error {
   constructor(
     readonly kind: JobQueueFailureKind,
-    readonly operation: "enqueue" | "receive" | "acknowledge",
+    readonly operation: "enqueue" | "receive" | "acknowledge" | "dead-letter",
     options?: ErrorOptions,
   ) {
     super(`Queue ${operation} failed.`, options);
@@ -38,4 +38,5 @@ export interface JobQueue {
     limit: number;
   }): Promise<readonly ReceivedQueueMessage[]>;
   acknowledge(messageId: QueueMessageId): Promise<boolean>;
+  deadLetter(messageId: QueueMessageId): Promise<boolean>;
 }

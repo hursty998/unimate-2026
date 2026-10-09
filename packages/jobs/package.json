@@ -1,5 +1,5 @@
 {
-  "name": "@unimate/queue",
+  "name": "@unimate/jobs",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,16 +10,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./supabase": {
-      "types": "./dist/supabase.d.ts",
-      "import": "./dist/supabase.js",
-      "default": "./dist/supabase.js"
-    },
-    "./supabase-test-support": {
-      "types": "./dist/supabase-test-support.d.ts",
-      "import": "./dist/supabase-test-support.js",
-      "default": "./dist/supabase-test-support.js"
     }
   },
   "scripts": {
@@ -29,11 +19,10 @@
     "test": "node --test dist/*.unit.test.js"
   },
   "dependencies": {
-    "pg": "8.23.1"
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/node": "24.19.1",
-    "@types/pg": "8.23.1",
     "typescript": "6.0.3"
   }
 }

@@ -43,6 +43,8 @@
     "authorization:test:prepared": "node --env-file-if-exists=packages/database/.env scripts/authorization-test.mjs",
     "providers:test": "pnpm exec turbo run build test --filter=@unimate/storage --filter=@unimate/queue --filter=@unimate/notifications --filter=@unimate/observability --output-logs=errors-only && pnpm providers:test:prepared",
     "providers:test:prepared": "node scripts/providers-test.mjs",
+    "worker:test": "pnpm db:generate && pnpm exec turbo run build test --filter=@unimate/worker --output-logs=errors-only && pnpm worker:test:prepared",
+    "worker:test:prepared": "node --env-file-if-exists=packages/database/.env scripts/worker-test.mjs",
     "git-diff": "node scripts/git-diff.mjs"
   },
   "devDependencies": {
