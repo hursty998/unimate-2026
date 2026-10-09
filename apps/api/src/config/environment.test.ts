@@ -13,6 +13,14 @@ test("API configuration validates untrusted environment values", () => {
     () => parseApiConfig({ API_CORS_ORIGINS: "https://example.com/path" }),
     { name: "ZodError" },
   );
+  assert.throws(
+    () =>
+      parseApiConfig({
+        SUPABASE_SECRET_KEY: "service-role-key",
+        SUPABASE_STORAGE_BUCKET: "../invalid",
+      }),
+    { name: "ZodError" },
+  );
 });
 
 test("API configuration supplies the documented local defaults", () => {
@@ -20,6 +28,8 @@ test("API configuration supplies the documented local defaults", () => {
     parseApiConfig({
       DATABASE_URL: "postgresql://localhost/postgres?schema=app",
       SUPABASE_URL: "http://127.0.0.1:55321",
+      SUPABASE_SECRET_KEY: "sb_secret_test-only",
+      SUPABASE_STORAGE_BUCKET: "foundation-storage-proof",
     }),
     {
       host: "0.0.0.0",
@@ -29,6 +39,8 @@ test("API configuration supplies the documented local defaults", () => {
       databaseUrl: "postgresql://localhost/postgres?schema=app",
       supabaseUrl: "http://127.0.0.1:55321",
       supabaseJwtAudience: "authenticated",
+      supabaseSecretKey: "sb_secret_test-only",
+      supabaseStorageBucket: "foundation-storage-proof",
     },
   );
 });

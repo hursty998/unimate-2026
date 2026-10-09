@@ -37,6 +37,7 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
   const prisma = createDatabaseClient({ connectionString });
   const userIds: string[] = [];
   const outboxIds: string[] = [];
+  const storedObjectIds: string[] = [];
   let universityId: string | undefined;
   let connected = false;
 
@@ -82,6 +83,51 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
 
     assert.equal(identity.userId, user.id);
     assert.equal(mappedIdentity?.user.id, user.id);
+
+    const storedObject = await prisma.storedObject.create({
+      data: {
+        objectKey: `foundation-storage-proof/${suffix}.txt`,
+        creatorUserId: user.id,
+        contentType: "text/plain",
+      },
+    });
+    storedObjectIds.push(storedObject.id);
+    assert.match(
+      storedObject.id,
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    assert.equal(storedObject.status, "PENDING");
+    assert.equal(storedObject.sizeBytes, null);
+    assert.equal(storedObject.completedAt, null);
+
+    await assert.rejects(
+      prisma.storedObject.update({
+        where: { id: storedObject.id },
+        data: { status: "READY", sizeBytes: 42 },
+      }),
+      (error: unknown) =>
+        error instanceof Error &&
+        (error.message.includes("stored_objects_lifecycle_valid") ||
+          hasCode(error, "P2004") ||
+          hasCode(error, "P2010")),
+    );
+
+    const completedObject = await prisma.storedObject.update({
+      where: { id: storedObject.id },
+      data: {
+        status: "READY",
+        sizeBytes: 42,
+        completedAt: new Date(),
+      },
+    });
+    assert.equal(completedObject.status, "READY");
+    assert.equal(completedObject.sizeBytes, 42);
+    assert.ok(completedObject.completedAt instanceof Date);
+    await assert.rejects(
+      prisma.user.delete({ where: { id: user.id } }),
+      (error: unknown) => hasCode(error, "P2003"),
+    );
+
     await assert.rejects(
       prisma.authIdentity.create({
         data: {
@@ -204,6 +250,19 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
         AND (
           (table_name = 'users' AND column_name IN ('id', 'created_at'))
           OR (table_name = 'outbox_messages' AND column_name IN ('id', 'payload'))
+          OR (
+            table_name = 'stored_objects'
+            AND column_name IN (
+              'id',
+              'object_key',
+              'creator_user_id',
+              'content_type',
+              'status',
+              'size_bytes',
+              'created_at',
+              'completed_at'
+            )
+          )
         )
     `;
     const columnType = (tableName: string, columnName: string) => {
@@ -220,6 +279,41 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     assert.equal(columnType("users", "created_at"), "timestamp with time zone");
     assert.equal(columnType("outbox_messages", "id"), "uuid");
     assert.equal(columnType("outbox_messages", "payload"), "jsonb");
+    assert.equal(columnType("stored_objects", "id"), "uuid");
+    assert.equal(columnType("stored_objects", "object_key"), "text");
+    assert.equal(columnType("stored_objects", "creator_user_id"), "uuid");
+    assert.equal(columnType("stored_objects", "content_type"), "text");
+    assert.equal(columnType("stored_objects", "size_bytes"), "integer");
+    assert.equal(
+      columnType("stored_objects", "created_at"),
+      "timestamp with time zone",
+    );
+    assert.equal(
+      columnType("stored_objects", "completed_at"),
+      "timestamp with time zone",
+    );
+
+    const storedObjectColumns = await prisma.$queryRaw<
+      Array<{ columnName: string }>
+    >`
+      SELECT column_name AS "columnName"
+      FROM information_schema.columns
+      WHERE table_schema = 'app' AND table_name = 'stored_objects'
+      ORDER BY ordinal_position
+    `;
+    assert.deepEqual(
+      storedObjectColumns.map(({ columnName }) => columnName),
+      [
+        "id",
+        "object_key",
+        "creator_user_id",
+        "content_type",
+        "status",
+        "size_bytes",
+        "created_at",
+        "completed_at",
+      ],
+    );
 
     const appTables = await prisma.$queryRaw<Array<{ tableName: string }>>`
       SELECT table_name AS "tableName"
@@ -238,6 +332,7 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
         "role_assignments",
         "role_capabilities",
         "roles",
+        "stored_objects",
         "universities",
         "university_affiliations",
         "users",
@@ -272,6 +367,11 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
         if (outboxIds.length > 0) {
           await prisma.outboxMessage.deleteMany({
             where: { id: { in: outboxIds } },
+          });
+        }
+        if (storedObjectIds.length > 0) {
+          await prisma.storedObject.deleteMany({
+            where: { id: { in: storedObjectIds } },
           });
         }
         if (userIds.length > 0) {

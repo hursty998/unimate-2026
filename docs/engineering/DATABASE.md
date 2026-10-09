@@ -25,6 +25,7 @@ Prisma CLI, Client, and PostgreSQL adapter are exact-pinned to stable Prisma ORM
 - The provider identity is opaque and unique by `(provider, providerSubject)`; it has no foreign key to Supabase `auth.users`.
 - A `UniversityAffiliation` row denotes an established affiliation. Authentication alone does not imply one.
 - Identity and affiliation rows cascade when their owning User is deleted. Deleting a University with affiliations is restricted.
+- Stored-object rows restrict User deletion until the owning application flow has deleted provider bytes and metadata, preventing cascades from orphaning objects.
 - The outbox has no dispatcher, retry, or queue implementation in this phase.
 - Positive outbox payload versions are enforced with a minimal migration check constraint because Prisma 7's schema language cannot represent it.
 

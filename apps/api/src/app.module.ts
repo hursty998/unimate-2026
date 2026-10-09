@@ -8,6 +8,8 @@ import {
 import { DatabaseModule } from "./infrastructure/database/database.module.js";
 import { AuthorizationModule } from "./modules/authorization/authorization.module.js";
 import { SystemModule } from "./modules/system/system.module.js";
+import { StorageProofModule } from "./modules/storage-proof/storage-proof.module.js";
+import { ObjectStorageModule } from "./providers/object-storage.module.js";
 
 @Module({})
 export class AppModule {
@@ -23,6 +25,8 @@ export class AppModule {
         SystemModule,
         AuthModule.register(config, authOverrides),
         AuthorizationModule,
+        ObjectStorageModule.register(config),
+        StorageProofModule,
       ],
     };
   }

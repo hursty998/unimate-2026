@@ -59,6 +59,9 @@ importers:
       '@unimate/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@unimate/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       fastify:
         specifier: 5.12.5
         version: 5.12.5

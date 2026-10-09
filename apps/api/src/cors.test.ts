@@ -12,6 +12,8 @@ test("CORS allows the API method set without widening configured origins", async
     databaseUrl: "postgresql://localhost/postgres?schema=app",
     supabaseUrl: "http://127.0.0.1:55321",
     supabaseJwtAudience: "authenticated",
+    supabaseSecretKey: "sb_secret_test-only",
+    supabaseStorageBucket: "foundation-storage-proof",
   });
 
   try {

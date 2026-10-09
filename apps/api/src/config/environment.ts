@@ -52,6 +52,8 @@ const apiEnvironmentSchema = z.object({
   DATABASE_URL: postgresUrlSchema,
   SUPABASE_URL: httpOriginSchema,
   SUPABASE_JWT_AUDIENCE: z.string().trim().min(1).default("authenticated"),
+  SUPABASE_SECRET_KEY: z.string().startsWith("sb_secret_"),
+  SUPABASE_STORAGE_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,62}$/),
 });
 
 export type ApiConfig = {
@@ -62,6 +64,8 @@ export type ApiConfig = {
   databaseUrl: string;
   supabaseUrl: string;
   supabaseJwtAudience: string;
+  supabaseSecretKey: string;
+  supabaseStorageBucket: string;
 };
 
 export function parseApiConfig(
@@ -77,5 +81,7 @@ export function parseApiConfig(
     databaseUrl: parsedEnvironment.DATABASE_URL,
     supabaseUrl: parsedEnvironment.SUPABASE_URL,
     supabaseJwtAudience: parsedEnvironment.SUPABASE_JWT_AUDIENCE,
+    supabaseSecretKey: parsedEnvironment.SUPABASE_SECRET_KEY,
+    supabaseStorageBucket: parsedEnvironment.SUPABASE_STORAGE_BUCKET,
   };
 }

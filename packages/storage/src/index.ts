@@ -55,6 +55,11 @@ export interface ReadPermission {
   readonly expiresAt: Date;
 }
 
+export interface StoredObjectMetadata {
+  readonly contentType: string;
+  readonly sizeBytes: number;
+}
+
 export interface ObjectStorage {
   createUploadPermission(input: {
     key: ObjectKey;
@@ -64,5 +69,6 @@ export interface ObjectStorage {
     key: ObjectKey;
     expiresInSeconds: number;
   }): Promise<ReadPermission>;
+  getObjectMetadata(key: ObjectKey): Promise<StoredObjectMetadata | null>;
   deleteObject(key: ObjectKey): Promise<void>;
 }

@@ -13,6 +13,8 @@ const config: ApiConfig = {
   databaseUrl: "postgresql://localhost/postgres?schema=app",
   supabaseUrl: "http://127.0.0.1:55321",
   supabaseJwtAudience: "authenticated",
+  supabaseSecretKey: "sb_secret_test-only",
+  supabaseStorageBucket: "foundation-storage-proof",
 };
 
 const expectedUser: AuthMeResponse = {
@@ -60,6 +62,32 @@ test("authenticated route rejects missing and malformed bearer credentials", asy
     authMeService: {
       getMe: async () => expectedUser,
     } satisfies Pick<AuthMeService, "getMe">,
+  });
+
+  test("storage-proof upload authorisation requires a valid bearer token", async () => {
+    const app = await createApiApplication(config, {
+      tokenVerifier: {
+        verify: async () => {
+          throw new Error("The storage-proof service must not run.");
+        },
+      },
+      authMeService: {
+        getMe: async () => expectedUser,
+      } satisfies Pick<AuthMeService, "getMe">,
+    });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/foundation/storage-proof/uploads/issue",
+        payload: {},
+      });
+
+      assert.equal(response.statusCode, 401);
+      assert.equal(response.body.includes("storage-proof service"), false);
+    } finally {
+      await app.close();
+    }
   });
 
   try {

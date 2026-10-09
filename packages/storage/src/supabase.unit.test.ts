@@ -98,6 +98,67 @@ test("creates a signed read permission with a provider-neutral expiry", async ()
   assert.ok(permission.expiresAt.getTime() > Date.now());
 });
 
+test("reads metadata for one exact object through the private Storage API", async () => {
+  let requestUrl = "";
+  let requestInit: RequestInit | undefined;
+  const fetcher: typeof fetch = async (input, init) => {
+    requestUrl = String(input);
+    requestInit = init;
+    return jsonResponse([
+      {
+        id: "object-id",
+        name: "object-1.txt",
+        metadata: { mimetype: "text/plain", size: 42 },
+      },
+      {
+        id: "other-object-id",
+        name: "object-1.txt.backup",
+        metadata: { mimetype: "text/plain", size: 100 },
+      },
+    ]);
+  };
+
+  const metadata = await storage(fetcher).getObjectMetadata(
+    parseObjectKey("foundation-storage-proof/object-1.txt"),
+  );
+
+  assert.equal(
+    requestUrl,
+    "http://127.0.0.1:55321/storage/v1/object/list/phase7-provider-tests",
+  );
+  assert.equal(requestInit?.method, "POST");
+  assert.deepEqual(JSON.parse(String(requestInit?.body)), {
+    prefix: "foundation-storage-proof",
+    search: "object-1.txt",
+    limit: 2,
+    offset: 0,
+    sortBy: { column: "name", order: "asc" },
+  });
+  assert.deepEqual(metadata, { contentType: "text/plain", sizeBytes: 42 });
+  assert.equal(JSON.stringify(metadata).includes("sb_secret_"), false);
+});
+
+test("reports a missing object without turning malformed provider data into absence", async () => {
+  const missingStorage = storage(async () => jsonResponse([]));
+  assert.equal(
+    await missingStorage.getObjectMetadata(
+      parseObjectKey("foundation-storage-proof/missing.txt"),
+    ),
+    null,
+  );
+
+  const malformedStorage = storage(async () =>
+    jsonResponse({ name: "missing" }),
+  );
+  await assert.rejects(
+    malformedStorage.getObjectMetadata(
+      parseObjectKey("foundation-storage-proof/missing.txt"),
+    ),
+    (error: unknown) =>
+      error instanceof ObjectStorageError && error.kind === "invalid-response",
+  );
+});
+
 test("deletes one object through the documented Storage API", async () => {
   let requestUrl = "";
   let requestInit: RequestInit | undefined;

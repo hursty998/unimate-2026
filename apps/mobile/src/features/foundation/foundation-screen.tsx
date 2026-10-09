@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useAuthMe } from "@/features/auth/use-auth-me";
 import { useAuth } from "@/lib/auth/auth-context";
+import { StorageProofPanel } from "@/features/storage-proof/storage-proof-panel";
 import { useSystemHealth } from "./use-system-health";
 
 export function FoundationScreen() {
@@ -123,6 +124,7 @@ export function FoundationScreen() {
               </Pressable>
             </>
           ) : null}
+          {authMe.data ? <StorageProofPanel /> : null}
           {authError ? <Text style={styles.error}>{authError}</Text> : null}
           <Pressable
             accessibilityRole="button"

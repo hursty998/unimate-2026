@@ -123,6 +123,11 @@ public = false
 file_size_limit = "1MiB"
 allowed_mime_types = ["text/plain"]
 
+[storage.buckets.foundation-storage-proof]
+public = false
+file_size_limit = "1MiB"
+allowed_mime_types = ["text/plain"]
+
 # Uncomment to configure local storage buckets
 # [storage.buckets.images]
 # public = false

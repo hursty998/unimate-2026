@@ -80,6 +80,8 @@ const result = spawnSync(
     env: {
       ...process.env,
       SUPABASE_URL: apiUrl.origin,
+      SUPABASE_SECRET_KEY: local.SECRET_KEY,
+      SUPABASE_STORAGE_BUCKET: "foundation-storage-proof",
       SUPABASE_TEST_PUBLISHABLE_KEY: local.PUBLISHABLE_KEY,
       SUPABASE_TEST_SECRET_KEY: local.SECRET_KEY,
     },

@@ -594,6 +594,10 @@ to clients.
 
 Domain/application errors should map predictably to transport responses.
 
+Inside oRPC procedure handlers, use `ORPCError` for expected client errors;
+Nest `HttpException`s thrown by the handler become unexpected RPC failures.
+Nest exceptions remain appropriate for guards that run before the handler.
+
 Unexpected failures should be logged with correlation context.
 
 ---

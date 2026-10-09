@@ -3,6 +3,7 @@ import {
   type ObjectKey,
   type ObjectStorage,
   type ReadPermission,
+  type StoredObjectMetadata,
   type UploadPermission,
 } from "./index.js";
 
@@ -157,6 +158,95 @@ export class SupabaseObjectStorage implements ObjectStorage {
       url: this.resolveSignedUrl(signedUrl),
       expiresAt: new Date(createdAt + expiresInSeconds * 1000),
     };
+  }
+
+  async getObjectMetadata(
+    key: ObjectKey,
+  ): Promise<StoredObjectMetadata | null> {
+    const segments = key.split("/");
+    const fileName = segments.pop();
+
+    if (!fileName) {
+      throw new TypeError("The object key must identify a file.");
+    }
+
+    const response = await this.request(
+      "POST",
+      `/object/list/${this.options.bucketName}`,
+      {
+        prefix: segments.join("/"),
+        search: fileName,
+        limit: 2,
+        offset: 0,
+        sortBy: { column: "name", order: "asc" },
+      },
+    );
+    const body = await this.readJson(response);
+
+    if (!Array.isArray(body)) {
+      throw new ObjectStorageError(
+        "invalid-response",
+        "Supabase Storage returned invalid object metadata.",
+      );
+    }
+
+    const matchingEntries = body.filter(
+      (entry) => isRecord(entry) && entry["name"] === fileName,
+    );
+
+    if (matchingEntries.length === 0) {
+      return null;
+    }
+
+    if (matchingEntries.length !== 1) {
+      throw new ObjectStorageError(
+        "invalid-response",
+        "Supabase Storage returned ambiguous object metadata.",
+      );
+    }
+
+    const matchingEntry = matchingEntries[0];
+    if (!isRecord(matchingEntry)) {
+      throw new ObjectStorageError(
+        "invalid-response",
+        "Supabase Storage returned invalid object metadata.",
+      );
+    }
+
+    if (matchingEntry["id"] === null) {
+      return null;
+    }
+
+    if (
+      typeof matchingEntry["id"] !== "string" ||
+      matchingEntry["id"].length === 0
+    ) {
+      throw new ObjectStorageError(
+        "invalid-response",
+        "Supabase Storage returned invalid object metadata.",
+      );
+    }
+
+    const metadata = isRecord(matchingEntry["metadata"])
+      ? matchingEntry["metadata"]
+      : undefined;
+    const contentType = metadata?.["mimetype"];
+    const sizeBytes = metadata?.["size"];
+
+    if (
+      typeof contentType !== "string" ||
+      contentType.length === 0 ||
+      typeof sizeBytes !== "number" ||
+      !Number.isSafeInteger(sizeBytes) ||
+      sizeBytes < 0
+    ) {
+      throw new ObjectStorageError(
+        "invalid-response",
+        "Supabase Storage returned incomplete object metadata.",
+      );
+    }
+
+    return { contentType, sizeBytes };
   }
 
   async deleteObject(key: ObjectKey): Promise<void> {

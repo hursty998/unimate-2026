@@ -24,16 +24,41 @@ enum AuthorizationScopeKind {
   @@schema("app")
 }
 
+enum StoredObjectStatus {
+  PENDING
+  READY
+
+  @@map("stored_object_status")
+  @@schema("app")
+}
+
 model User {
   id                     String                  @id @default(uuid(7)) @db.Uuid
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
   authIdentities         AuthIdentity[]
+  storedObjects          StoredObject[]
   universityAffiliations UniversityAffiliation[]
   roleAssignments        RoleAssignment[]
   capabilityAssignments  CapabilityAssignment[]
 
   @@map("users")
+  @@schema("app")
+}
+
+model StoredObject {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  objectKey     String             @unique @map("object_key")
+  creatorUserId String             @map("creator_user_id") @db.Uuid
+  contentType   String             @map("content_type")
+  status        StoredObjectStatus @default(PENDING)
+  sizeBytes     Int?               @map("size_bytes")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt   DateTime?          @map("completed_at") @db.Timestamptz(6)
+  creator       User               @relation(fields: [creatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([creatorUserId])
+  @@map("stored_objects")
   @@schema("app")
 }
 

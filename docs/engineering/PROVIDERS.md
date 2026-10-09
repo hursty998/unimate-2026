@@ -19,24 +19,30 @@ secretless and uses public JWKS.
 
 - `createUploadPermission({ key, contentType })`;
 - `createReadPermission({ key, expiresInSeconds })`;
+- `getObjectMetadata(key)`, returning provider-neutral content type and size or
+  `null` when no file exists;
 - `deleteObject(key)`.
 
 An `ObjectKey` is a relative slash-separated sequence of ASCII path segments.
 Empty segments and `.`/`..` traversal segments are rejected. Use provider-
-neutral keys such as `phase7-tests/<opaque-id>.txt`; do not invent product
-paths before product resources exist. Signed URLs are temporary capabilities,
-not durable object identity. Persist keys through the later product feature,
-not URLs or bucket endpoints.
+neutral keys such as `phase7-tests/<opaque-id>.txt` or
+`foundation-storage-proof/<opaque-id>.txt`; do not invent product paths before
+product resources exist. Signed URLs are temporary capabilities, not durable
+object identity. Persist keys through the consuming application feature, not
+URLs or bucket endpoints.
 
 `@unimate/storage/supabase` implements the port with the Supabase Storage HTTP
 API and server-side `fetch`. Upload permissions use the provider's signed
 upload URL and required `PUT` headers; read permissions use expiring signed
-URLs. The adapter requires an explicitly injected `sb_secret_` key. Its local
-private test bucket is declared in `supabase/config.toml`. If a running local
-stack has not loaded that configuration, the integration fixture provisions
-and removes the bucket through the supported local Storage API; it never
-modifies Storage-owned tables. Tests round-trip a unique synthetic object and
-delete it in `finally`.
+URLs. Object metadata inspection uses the supported Storage object-list API
+with an exact parent path/name match, so upload completion can verify the file
+without exposing provider response types. The adapter requires an explicitly
+injected `sb_secret_` key. Its private local provider-test and foundation-proof
+buckets are declared in `supabase/config.toml`. Provider tests provision and
+remove only their own temporary bucket through the supported local Storage API.
+The storage-proof integration idempotently provisions its dedicated private
+bucket and leaves it available for web/native runtime proof. These flows never
+modify Storage-owned tables.
 
 ## Queue
 
@@ -79,10 +85,10 @@ collector, exporter, metrics, or hosted observability backend is configured.
 
 Adapters receive explicit options at their server-side composition boundary:
 Supabase URL/secret/bucket for Storage, a server-only PostgreSQL connection
-string/queue name for PGMQ, and the standard Expo endpoint. This foundation
-does not wire adapters into API features or require provider env vars before a
-real operation uses them. Never put these credentials in `EXPO_PUBLIC_*`.
-Provider credentials are unrelated to the Phase 5 JWKS verifier.
+string/queue name for PGMQ, and the standard Expo endpoint. Phase 8 wires only
+the storage adapter through `apps/api/src/providers`; feature code consumes
+the provider-neutral port. Never put provider credentials in `EXPO_PUBLIC_*`.
+The Storage secret is unrelated to the Phase 5 JWKS verifier.
 
 `pnpm providers:test` builds and runs provider-free unit tests, ensures local
 Supabase is available, applies pending migrations with `--local`, and runs the
@@ -94,8 +100,8 @@ mocked `fetch`, and telemetry tests use an in-memory exporter.
 
 ## Deferred
 
-Product file ownership/metadata and upload endpoints, notification models and
-preferences, device-token registration, final notification behaviour, email,
-worker execution, business jobs, the job envelope, retries/DLQ orchestration,
-outbox dispatch, and a real telemetry exporter/backend remain with later
-phases.
+Product-specific file ownership/metadata and upload endpoints, notification
+models and preferences, device-token registration, final notification
+behaviour, email, worker execution, business jobs, the job envelope, retries/DLQ
+orchestration, outbox dispatch, and a real telemetry exporter/backend remain
+with later phases.

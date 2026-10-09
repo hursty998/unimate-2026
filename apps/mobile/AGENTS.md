@@ -17,6 +17,7 @@
 - Before starting Metro on port 8081, check whether a healthy Expo/Metro server is already listening; when appropriate, query `http://localhost:8081/status` and look for `packager-status:running`.
 - A healthy status response alone does not establish which checkout owns the server. Check its process/worktree context when needed, and reuse it when it belongs to this checkout.
 - Do not start a duplicate server just because a validation command asks for one. If the existing server is stale or belongs to another checkout, diagnose it before taking action; do not assume a port identifies a process that is safe to terminate.
+- For iOS/Android QA, use the `dev` script rather than the web-target `web` script; an installed development client can otherwise keep showing a cached bundle. Reconnect with an explicit Metro host/port and verify the changed UI on-device before accepting the runtime result.
 
 ## Verification
 
