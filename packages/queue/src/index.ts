@@ -32,7 +32,10 @@ export interface ReceivedQueueMessage {
 }
 
 export interface JobQueue {
-  enqueue(payload: JsonValue): Promise<QueueMessageId>;
+  enqueue(
+    payload: JsonValue,
+    options?: { readonly delaySeconds?: number },
+  ): Promise<QueueMessageId>;
   receive(options: {
     visibilityTimeoutSeconds: number;
     limit: number;

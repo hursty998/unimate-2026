@@ -98,7 +98,21 @@ export class SupabaseJobQueue implements JobQueue {
     });
   }
 
-  async enqueue(payload: JsonValue): Promise<QueueMessageId> {
+  async enqueue(
+    payload: JsonValue,
+    options: { readonly delaySeconds?: number } = {},
+  ): Promise<QueueMessageId> {
+    const delaySeconds = options.delaySeconds ?? 0;
+    if (
+      !Number.isSafeInteger(delaySeconds) ||
+      delaySeconds < 0 ||
+      delaySeconds > 2_147_483_647
+    ) {
+      throw new TypeError(
+        "Queue delay must be a non-negative PostgreSQL integer.",
+      );
+    }
+
     const serialized = JSON.stringify(toJsonValue(payload));
 
     if (serialized === undefined) {
@@ -107,8 +121,8 @@ export class SupabaseJobQueue implements JobQueue {
 
     try {
       const result = await this.pool.query<{ message_id: string }>(
-        "select pgmq.send($1::text, $2::jsonb)::text as message_id",
-        [this.options.queueName, serialized],
+        "select pgmq.send($1::text, $2::jsonb, $3::integer)::text as message_id",
+        [this.options.queueName, serialized, delaySeconds],
       );
       const row = result.rows[0];
 

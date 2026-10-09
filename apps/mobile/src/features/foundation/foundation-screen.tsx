@@ -9,6 +9,8 @@ import {
   View,
 } from "react-native";
 import { useAuthMe } from "@/features/auth/use-auth-me";
+import { PushProofPanel } from "@/features/foundation/push-proof-panel";
+import { shouldShowFoundationPushProof } from "@/features/foundation/push-proof-visibility";
 import { shouldShowStorageProof } from "@/features/storage-proof/storage-proof-visibility";
 import { useAuth } from "@/lib/auth/auth-context";
 import { StorageProofPanel } from "@/features/storage-proof/storage-proof-panel";
@@ -129,6 +131,9 @@ export function FoundationScreen() {
           ) : null}
           {shouldShowStorageProof(__DEV__, authMe.data !== undefined) ? (
             <StorageProofPanel />
+          ) : null}
+          {shouldShowFoundationPushProof(__DEV__, authMe.data !== undefined) ? (
+            <PushProofPanel key={authMe.data?.user.id} />
           ) : null}
           {authError ? <Text style={styles.error}>{authError}</Text> : null}
           <Pressable

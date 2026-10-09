@@ -25,6 +25,7 @@
     "@unimate/authorization": "workspace:*",
     "@unimate/contracts": "workspace:*",
     "@unimate/database": "workspace:*",
+    "@unimate/jobs": "workspace:*",
     "@unimate/storage": "workspace:*",
     "fastify": "5.12.5",
     "reflect-metadata": "0.2.2",

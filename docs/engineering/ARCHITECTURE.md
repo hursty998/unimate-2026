@@ -551,19 +551,21 @@ commit. Handlers must therefore be idempotent. See
 
 # 18. Push notifications
 
-Use a provider-neutral push interface.
+Use a provider-neutral push interface. `PushProvider` sends to one opaque
+destination and checks the opaque submission handle for a provider-neutral
+`accepted` or `pending` receipt result. Expo Push Service is the initial
+provider. A receipt accepted by APNs/FCM is not proof that a person saw the
+notification.
 
-Initial provider:
+Device registrations and minimal transport delivery attempts are separate
+from in-app Notification domain data. The Phase 10 foundation send job carries
+only a registration ID; its receipt-check job carries only a delivery-attempt
+ID. Persist successful submission handles to prevent ordinary redelivery from
+resending, while documenting the narrow external-acceptance-before-persistence
+duplicate window. Never claim exactly-once push delivery.
 
-- Expo Push Service.
-
-Device registration data should remain separate from in-app Notification domain data.
-
-"Push notification" and "in-app Notification" are separate concerns.
-
-Push is a delivery mechanism.
-
-Later UniMate Notification records will represent application attention/history.
+"Push notification" and "in-app Notification" are separate concerns. Later
+UniMate Notification records will represent application attention/history.
 
 ---
 

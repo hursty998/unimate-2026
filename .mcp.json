@@ -3,6 +3,16 @@
     "supabase": {
       "type": "http",
       "url": "http://localhost:55321/mcp"
+    },
+
+    "xcode": {
+      "type": "stdio",
+      "command": "/usr/bin/xcrun",
+      "args": ["mcpbridge"]
+    },
+    "expo": {
+      "url": "https://mcp.expo.dev/mcp",
+      "type": "http"
     }
   }
 }

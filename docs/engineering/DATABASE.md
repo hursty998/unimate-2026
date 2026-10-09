@@ -27,6 +27,15 @@ Prisma CLI, Client, and PostgreSQL adapter are exact-pinned to stable Prisma ORM
 - Identity and affiliation rows cascade when their owning User is deleted. Deleting a University with affiliations is restricted.
 - Stored-object rows restrict User deletion until the owning application flow has deleted provider bytes and metadata, preventing cascades from orphaning objects.
 - `FoundationAsyncTask` is synthetic Phase 9 state used only to prove atomic outbox writes and idempotent worker completion; it is not a product domain.
+- `PushRegistration` stores one provider-qualified opaque device destination
+  owned by a UniMate User. A partial unique index permits only one active row
+  per provider/token while retaining disabled history. A cross-account token
+  transfer disables the old row and creates a new ID, fencing jobs already
+  targeting the prior owner. User deletion cascades through registrations and
+  their `PushDeliveryAttempt` transport records.
+- `PushDeliveryAttempt` stores only its unique source send-job ID, registration
+  FK, opaque provider submission handle, transport status, and receipt-check
+  timestamps. It does not store notification content or provider responses.
 - The existing `OutboxMessage` is dispatched by the worker. Its `publishedAt` records queue acceptance, not job completion; see [`BACKGROUND_JOBS.md`](./BACKGROUND_JOBS.md).
 - Positive outbox payload versions are enforced with a minimal migration check constraint because Prisma 7's schema language cannot represent it.
 

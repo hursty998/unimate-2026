@@ -163,6 +163,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
         const task = await transaction.foundationAsyncTask.create({
           data: {},
         });
+
         rolledBackTaskId = task.id;
         const outbox = await transaction.outboxMessage.create({
           data: {

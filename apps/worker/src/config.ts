@@ -53,6 +53,11 @@ const workerEnvironmentSchema = z.object({
   WORKER_BATCH_SIZE: integerSetting(10, 1, 100),
   WORKER_MAX_DELIVERY_ATTEMPTS: integerSetting(5, 1, 100),
   WORKER_POLL_INTERVAL_MS: integerSetting(1_000, 10, 300_000),
+  FOUNDATION_PUSH_RECEIPT_CHECK_DELAY_SECONDS: integerSetting(
+    15 * 60,
+    0,
+    2_147_483_647,
+  ),
 });
 
 export interface WorkerConfig {
@@ -63,6 +68,7 @@ export interface WorkerConfig {
   readonly batchSize: number;
   readonly maxDeliveryAttempts: number;
   readonly pollIntervalMilliseconds: number;
+  readonly foundationPushReceiptCheckDelaySeconds: number;
 }
 
 export class WorkerConfigurationError extends Error {
@@ -94,5 +100,7 @@ export function parseWorkerConfig(
     batchSize: result.data.WORKER_BATCH_SIZE,
     maxDeliveryAttempts: result.data.WORKER_MAX_DELIVERY_ATTEMPTS,
     pollIntervalMilliseconds: result.data.WORKER_POLL_INTERVAL_MS,
+    foundationPushReceiptCheckDelaySeconds:
+      result.data.FOUNDATION_PUSH_RECEIPT_CHECK_DELAY_SECONDS,
   };
 }

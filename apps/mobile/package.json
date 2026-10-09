@@ -48,16 +48,18 @@
   "devDependencies": {
     "@types/node": "24.19.1",
     "@types/react": "19.2.18",
+    "expo-mcp": "~0.2.4",
     "typescript": "6.0.3"
   },
   "scripts": {
     "dev": "expo start --dev-client",
+    "dev:mcp": "EXPO_UNSTABLE_MCP_SERVER=1 expo start --dev-client --host lan --port 8081",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "build": "expo export --platform web",
     "lint": "eslint .",
-    "test": "node --test src/lib/auth/secure-session-storage.test.ts src/lib/auth/sign-out.test.ts src/lib/network/endpoint-url.test.ts src/lib/network/storage-capability-url.test.ts src/features/storage-proof/storage-proof-visibility.test.ts",
+    "test": "node --test plugins/with-ios-scene-lifecycle.test.mjs src/lib/auth/secure-session-storage.test.ts src/lib/auth/sign-out.test.ts src/lib/network/endpoint-url.test.ts src/lib/network/storage-capability-url.test.ts src/features/storage-proof/storage-proof-visibility.test.ts src/features/foundation/push-proof-visibility.test.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit"
   },
   "private": true

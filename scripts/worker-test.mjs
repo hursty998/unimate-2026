@@ -98,6 +98,7 @@ const integration = run(
     "--test-concurrency=1",
     "--test",
     "apps/worker/dist/worker.integration.test.js",
+    "apps/worker/dist/push-worker.integration.test.js",
   ],
   {
     env: {

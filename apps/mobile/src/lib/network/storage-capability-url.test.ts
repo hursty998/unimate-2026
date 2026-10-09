@@ -40,6 +40,21 @@ test("uses the resolved loopback Supabase origin without changing web or iOS cap
   );
 });
 
+test("rewrites a local signed Storage capability to a private Tailscale Supabase origin and preserves its path and query", () => {
+  const capability =
+    "http://127.0.0.1:55321/storage/v1/object/sign/bucket/folder%2Fproof%20file.txt?token=part%2Ftwo&download=proof%20file.txt";
+
+  assert.equal(
+    resolveStorageCapabilityUrl(
+      capability,
+      "ios",
+      "https://mobile.tailnet.ts.net:8443",
+      true,
+    ),
+    "https://mobile.tailnet.ts.net:8443/storage/v1/object/sign/bucket/folder%2Fproof%20file.txt?token=part%2Ftwo&download=proof%20file.txt",
+  );
+});
+
 test("does not rewrite production HTTPS capabilities", () => {
   const productionUrl =
     "https://storage.example.test/storage/v1/object/sign/private/object.txt?token=opaque";
@@ -97,4 +112,23 @@ test("rejects an unsafe configured Android Supabase origin for local signed capa
       ),
     /platform's configured local Supabase origin/,
   );
+});
+
+test("rejects arbitrary HTTPS, wrong-port Tailscale, and lookalike HTTPS origins", () => {
+  const origins = [
+    "https://storage.example.test:8443",
+    "https://mobile.tailnet.ts.net",
+    "https://mobile.tailnet.ts.net:443",
+    "https://mobile.tailnet.ts.net:9443",
+    "https://example.ts.net.evil.test:8443",
+    "https://ts.net:8443",
+  ];
+
+  for (const origin of origins) {
+    assert.throws(
+      () => resolveStorageCapabilityUrl(localSignedUrl, "ios", origin, true),
+      /configured local Supabase origin/,
+      origin,
+    );
+  }
 });

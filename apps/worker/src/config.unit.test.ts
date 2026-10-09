@@ -16,6 +16,7 @@ test("parses explicit PostgreSQL connections and safe worker defaults", () => {
     batchSize: 10,
     maxDeliveryAttempts: 5,
     pollIntervalMilliseconds: 1_000,
+    foundationPushReceiptCheckDelaySeconds: 900,
   });
 });
 
@@ -30,6 +31,7 @@ test("rejects unsafe values without echoing connection credentials", () => {
         WORKER_BATCH_SIZE: "101",
         WORKER_MAX_DELIVERY_ATTEMPTS: "-1",
         WORKER_POLL_INTERVAL_MS: "1",
+        FOUNDATION_PUSH_RECEIPT_CHECK_DELAY_SECONDS: "-1",
       }),
     (error: unknown) => {
       assert.ok(error instanceof WorkerConfigurationError);
@@ -40,10 +42,21 @@ test("rejects unsafe values without echoing connection credentials", () => {
         "WORKER_BATCH_SIZE",
         "WORKER_MAX_DELIVERY_ATTEMPTS",
         "WORKER_POLL_INTERVAL_MS",
+        "FOUNDATION_PUSH_RECEIPT_CHECK_DELAY_SECONDS",
       ]);
       assert.equal(error.message.includes("secret.invalid"), false);
       return true;
     },
+  );
+});
+
+test("allows zero-delay receipt checks for deterministic local transport proof", () => {
+  assert.equal(
+    parseWorkerConfig({
+      ...validEnvironment,
+      FOUNDATION_PUSH_RECEIPT_CHECK_DELAY_SECONDS: "0",
+    }).foundationPushReceiptCheckDelaySeconds,
+    0,
   );
 });
 

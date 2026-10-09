@@ -46,11 +46,13 @@ modify Storage-owned tables.
 
 ## Queue
 
-`@unimate/queue` exposes `JobQueue`: enqueue JSON, receive a bounded batch with
-an explicit visibility timeout, acknowledge an opaque message ID, and
-dead-letter a message. The Supabase adapter uses documented PGMQ functions
-(`send`, `read`, `delete`, `archive`) through a pooled PostgreSQL connection.
-Queue internals are not exposed over PostgREST, and provider SQL stays inside
+`@unimate/queue` exposes `JobQueue`: enqueue JSON with an optional
+non-negative `delaySeconds`, receive a bounded batch with an explicit
+visibility timeout, acknowledge an opaque message ID, and dead-letter a
+message. The default delay is zero. The Supabase adapter uses documented PGMQ
+functions (`send`, `read`, `delete`, `archive`) through a pooled PostgreSQL
+connection; PGMQ's send-delay argument stays inside the adapter. Queue
+internals are not exposed over PostgREST, and provider SQL stays inside
 `@unimate/queue/supabase`.
 
 An unacknowledged message becomes visible again after its timeout; acknowledging
@@ -64,16 +66,25 @@ provider with `@unimate/jobs`, the database, and observability; details are in
 
 ## Push delivery
 
-`@unimate/notifications` exposes only `PushProvider.send` for one destination
-token and a title/body/JSON payload. `@unimate/notifications/expo` uses native
-`fetch` and Expo's documented HTTP endpoint. A successful send returns a
-provider-neutral opaque submission handle containing the ticket identifier;
-the later receipt-checking worker/orchestration phase needs it to query the
-eventual Expo receipt. Receipt polling is not implemented here.
+`@unimate/notifications` exposes provider-neutral `PushProvider.send` and
+`PushProvider.checkReceipt` operations. `@unimate/notifications/expo` uses
+native `fetch` and Expo's documented send and receipt endpoints. A successful
+send returns an opaque submission handle; receipt lookup returns only
+`accepted` or `pending`. `accepted` means APNs/FCM accepted the notification,
+not that a person saw it. A missing Expo receipt is pending, and
+`DeviceNotRegistered` becomes the provider-neutral invalid-token failure.
 `PushProviderError` maps invalid tokens, transient failures, and permanent
-provider rejections without retaining or logging provider payloads. There is
-no token registration, notification persistence, batching, or orchestration
-in this phase.
+provider rejections without retaining or logging provider payloads.
+
+Phase 10 persists opaque Expo device registrations separately from product
+Notification data and gives each successful send a transport-level
+`PushDeliveryAttempt`. Send and receipt-check jobs carry stable application
+IDs only. Expo receipts are checked after the documented 15-minute delay by
+default. Device-token ownership transfers create a new registration ID while
+disabling the previous row, so already-queued work cannot follow a token to a
+different account. No push credentials, token values, receipt handles, or
+arbitrary notification content cross the provider boundary into logs or job
+payloads.
 
 ## Telemetry
 

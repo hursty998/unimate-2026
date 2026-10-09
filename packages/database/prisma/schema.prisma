@@ -32,11 +32,46 @@ enum StoredObjectStatus {
   @@schema("app")
 }
 
+enum PushProviderKind {
+  EXPO
+
+  @@map("push_provider_kind")
+  @@schema("app")
+}
+
+enum PushPlatform {
+  IOS
+  ANDROID
+
+  @@map("push_platform")
+  @@schema("app")
+}
+
+enum PushRegistrationStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("push_registration_status")
+  @@schema("app")
+}
+
+enum PushDeliveryStatus {
+  SUBMITTED
+  RECEIPT_ACCEPTED
+  INVALID_TOKEN
+  REJECTED
+  SKIPPED_DISABLED
+
+  @@map("push_delivery_status")
+  @@schema("app")
+}
+
 model User {
   id                     String                  @id @default(uuid(7)) @db.Uuid
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
   authIdentities         AuthIdentity[]
+  pushRegistrations      PushRegistration[]
   storedObjects          StoredObject[]
   universityAffiliations UniversityAffiliation[]
   roleAssignments        RoleAssignment[]
@@ -185,5 +220,38 @@ model FoundationAsyncTask {
   completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
 
   @@map("foundation_async_tasks")
+  @@schema("app")
+}
+
+model PushRegistration {
+  id               String                  @id @default(uuid(7)) @db.Uuid
+  userId           String                  @map("user_id") @db.Uuid
+  provider         PushProviderKind
+  platform         PushPlatform
+  providerToken    String                  @map("provider_token")
+  status           PushRegistrationStatus  @default(ACTIVE)
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user             User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveryAttempts PushDeliveryAttempt[]
+
+  @@index([userId, status])
+  @@map("push_registrations")
+  @@schema("app")
+}
+
+model PushDeliveryAttempt {
+  id                     String             @id @default(uuid(7)) @db.Uuid
+  sourceJobId            String             @unique @map("source_job_id") @db.Uuid
+  registrationId         String             @map("registration_id") @db.Uuid
+  submissionHandle       String?            @map("submission_handle")
+  status                 PushDeliveryStatus
+  receiptCheckScheduledAt DateTime?          @map("receipt_check_scheduled_at") @db.Timestamptz(6)
+  receiptCheckedAt       DateTime?           @map("receipt_checked_at") @db.Timestamptz(6)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  registration           PushRegistration   @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@map("push_delivery_attempts")
   @@schema("app")
 }

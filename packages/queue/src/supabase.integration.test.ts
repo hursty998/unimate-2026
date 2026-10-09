@@ -29,6 +29,33 @@ test("Supabase Queues sends, reserves, redelivers, acknowledges, and dead-letter
         limit: 1,
       });
 
+      test("Supabase Queues delays visibility until the requested test interval", async () => {
+        const queueName = `phase10-delay-${randomUUID().replaceAll("-", "")}`;
+        const payload = {
+          fixture: "phase10-delayed-visibility",
+        } satisfies JsonValue;
+
+        await withSupabaseTestQueue(
+          { connectionString, queueName },
+          async (queue) => {
+            const id = await queue.enqueue(payload, { delaySeconds: 1 });
+
+            assert.deepEqual(
+              await queue.receive({ visibilityTimeoutSeconds: 0, limit: 1 }),
+              [],
+            );
+
+            await delay(1_100);
+
+            assert.deepEqual(
+              await queue.receive({ visibilityTimeoutSeconds: 0, limit: 1 }),
+              [{ id, payload, deliveryCount: 1 }],
+            );
+            assert.equal(await queue.acknowledge(id), true);
+          },
+        );
+      });
+
       assert.equal(firstRead.length, 1);
       assert.deepEqual(firstRead[0], {
         id,

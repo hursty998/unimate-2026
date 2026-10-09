@@ -16,6 +16,7 @@
     "@opentelemetry/api": "1.9.1",
     "@unimate/database": "workspace:*",
     "@unimate/jobs": "workspace:*",
+    "@unimate/notifications": "workspace:*",
     "@unimate/observability": "workspace:*",
     "@unimate/queue": "workspace:*",
     "zod": "4.6.5"

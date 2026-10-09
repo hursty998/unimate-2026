@@ -3,8 +3,13 @@ import { pathToFileURL } from "node:url";
 import { parseWorkerConfig } from "./config.js";
 import { DeadLetterFailureError } from "./consumer.js";
 import { createFoundationTaskHandler } from "./foundation-task-handler.js";
+import {
+  createFoundationPushReceiptCheckHandler,
+  createFoundationPushSendHandler,
+} from "./foundation-push-handlers.js";
 import { dispatchOutboxBatch } from "./outbox-dispatcher.js";
 import { createWorkerProviders } from "./providers/worker-providers.js";
+import { PrismaPushDeliveryRepository } from "./push-delivery-repository.js";
 import { createJobHandlerRegistry } from "./registry.js";
 import {
   runWorkerContinuously,
@@ -78,9 +83,21 @@ export async function main(
 ): Promise<void> {
   const { once } = parseArguments(arguments_);
   const config = parseWorkerConfig(process.env);
-  const { database, queue, telemetry } = createWorkerProviders(config);
+  const { database, queue, telemetry, pushProvider } =
+    createWorkerProviders(config);
+  const pushDeliveryRepository = new PrismaPushDeliveryRepository(database);
   const registry = createJobHandlerRegistry([
     createFoundationTaskHandler(database),
+    createFoundationPushSendHandler({
+      repository: pushDeliveryRepository,
+      queue,
+      pushProvider,
+      receiptCheckDelaySeconds: config.foundationPushReceiptCheckDelaySeconds,
+    }),
+    createFoundationPushReceiptCheckHandler({
+      repository: pushDeliveryRepository,
+      pushProvider,
+    }),
   ]);
   const dependencies = {
     dispatchOutbox: (limit: number) =>

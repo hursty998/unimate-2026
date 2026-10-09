@@ -12,10 +12,13 @@ import { SupabaseJobQueue } from "./supabase.js";
 
 test("JobQueue can be implemented by a provider-free deterministic fake", async () => {
   const messages = new Map<string, JsonValue>();
+  const enqueueOptions: Array<{ readonly delaySeconds?: number } | undefined> =
+    [];
   let nextId = 1;
   const queue: JobQueue = {
-    async enqueue(payload) {
+    async enqueue(payload, options) {
       const id = `fake-${nextId++}`;
+      enqueueOptions.push(options);
       messages.set(id, payload);
       return id as QueueMessageId;
     },
@@ -51,8 +54,10 @@ test("JobQueue can be implemented by a provider-free deterministic fake", async 
     await queue.receive({ visibilityTimeoutSeconds: 5, limit: 1 }),
     [],
   );
+  assert.deepEqual(enqueueOptions, [undefined]);
 
   const deadLetterId = await queue.enqueue(payload);
+  assert.deepEqual(enqueueOptions, [undefined, undefined]);
   assert.equal(await queue.deadLetter(deadLetterId), true);
   assert.equal(await queue.deadLetter(deadLetterId), false);
   assert.deepEqual(
@@ -86,6 +91,30 @@ test("rejects queue names beyond the documented PGMQ limit", () => {
       }),
     /up to 48/,
   );
+});
+
+test("Supabase queue defaults to immediate visibility and validates delays", async () => {
+  const queue = new SupabaseJobQueue({
+    connectionString: "postgresql://localhost/postgres",
+    queueName: "phase10-delay-validation",
+  });
+
+  try {
+    await assert.rejects(
+      queue.enqueue({ fixture: "delay" }, { delaySeconds: -1 }),
+      TypeError,
+    );
+    await assert.rejects(
+      queue.enqueue({ fixture: "delay" }, { delaySeconds: 1.5 }),
+      TypeError,
+    );
+    await assert.rejects(
+      queue.enqueue({ fixture: "delay" }, { delaySeconds: 2_147_483_648 }),
+      TypeError,
+    );
+  } finally {
+    await queue.close();
+  }
 });
 
 test("rejects malformed PGMQ rows with provider-neutral queue semantics", () => {

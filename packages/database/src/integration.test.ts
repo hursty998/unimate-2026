@@ -57,6 +57,8 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     const providerSubject = `integration:${suffix}`;
     assert.equal(await prisma.outboxMessage.count(), 0);
     assert.equal(await prisma.foundationAsyncTask.count(), 0);
+    assert.equal(await prisma.pushRegistration.count(), 0);
+    assert.equal(await prisma.pushDeliveryAttempt.count(), 0);
 
     const user = await prisma.user.create({ data: {} });
     userIds.push(user.id);
@@ -200,6 +202,46 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
 
     assert.deepEqual(externalUser?.universityAffiliations, []);
 
+    const pushToken = `synthetic-expo-token:${suffix}`;
+    const pushRegistration = await prisma.pushRegistration.create({
+      data: {
+        userId: user.id,
+        provider: "EXPO",
+        platform: "IOS",
+        providerToken: pushToken,
+      },
+    });
+    assert.match(
+      pushRegistration.id,
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    assert.equal(pushRegistration.status, "ACTIVE");
+    await assert.rejects(
+      prisma.pushRegistration.create({
+        data: {
+          userId: unaffiliatedUser.id,
+          provider: "EXPO",
+          platform: "ANDROID",
+          providerToken: pushToken,
+        },
+      }),
+      (error: unknown) => hasCode(error, "P2002"),
+    );
+
+    await prisma.pushRegistration.update({
+      where: { id: pushRegistration.id },
+      data: { status: "DISABLED" },
+    });
+    const replacementRegistration = await prisma.pushRegistration.create({
+      data: {
+        userId: unaffiliatedUser.id,
+        provider: "EXPO",
+        platform: "ANDROID",
+        providerToken: pushToken,
+      },
+    });
+    assert.notEqual(replacementRegistration.id, pushRegistration.id);
+
     const foundationTask = await prisma.foundationAsyncTask.create({
       data: {},
     });
@@ -228,6 +270,31 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     assert.equal(storedMessage.payloadVersion, 1);
     assert.equal(storedMessage.publishedAt, null);
     assert.ok(storedMessage.createdAt instanceof Date);
+    const pushAttempt = await prisma.pushDeliveryAttempt.create({
+      data: {
+        sourceJobId: outboxMessage.id,
+        registrationId: replacementRegistration.id,
+        submissionHandle: "synthetic-provider-handle",
+        status: "SUBMITTED",
+        receiptCheckScheduledAt: new Date(),
+      },
+    });
+    assert.match(
+      pushAttempt.id,
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    assert.equal(pushAttempt.status, "SUBMITTED");
+    assert.equal(pushAttempt.submissionHandle, "synthetic-provider-handle");
+    await assert.rejects(
+      prisma.pushDeliveryAttempt.create({
+        data: {
+          sourceJobId: outboxMessage.id,
+          registrationId: replacementRegistration.id,
+          status: "SUBMITTED",
+        },
+      }),
+      (error: unknown) => hasCode(error, "P2002"),
+    );
     await assert.rejects(
       prisma.outboxMessage.create({
         data: {
@@ -282,6 +349,32 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
               'completed_at'
             )
           )
+          OR (
+            table_name = 'push_registrations'
+            AND column_name IN (
+              'id',
+              'user_id',
+              'provider',
+              'platform',
+              'provider_token',
+              'status',
+              'created_at',
+              'updated_at'
+            )
+          )
+          OR (
+            table_name = 'push_delivery_attempts'
+            AND column_name IN (
+              'id',
+              'source_job_id',
+              'registration_id',
+              'submission_handle',
+              'status',
+              'receipt_check_scheduled_at',
+              'receipt_checked_at',
+              'created_at'
+            )
+          )
         )
     `;
     const columnType = (tableName: string, columnName: string) => {
@@ -320,6 +413,31 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
       columnType("stored_objects", "completed_at"),
       "timestamp with time zone",
     );
+    assert.equal(columnType("push_registrations", "id"), "uuid");
+    assert.equal(columnType("push_registrations", "user_id"), "uuid");
+    assert.equal(columnType("push_registrations", "provider_token"), "text");
+    assert.equal(
+      columnType("push_registrations", "created_at"),
+      "timestamp with time zone",
+    );
+    assert.equal(columnType("push_delivery_attempts", "id"), "uuid");
+    assert.equal(columnType("push_delivery_attempts", "source_job_id"), "uuid");
+    assert.equal(
+      columnType("push_delivery_attempts", "registration_id"),
+      "uuid",
+    );
+    assert.equal(
+      columnType("push_delivery_attempts", "submission_handle"),
+      "text",
+    );
+    assert.equal(
+      columnType("push_delivery_attempts", "receipt_check_scheduled_at"),
+      "timestamp with time zone",
+    );
+    assert.equal(
+      columnType("push_delivery_attempts", "receipt_checked_at"),
+      "timestamp with time zone",
+    );
 
     const storedObjectColumns = await prisma.$queryRaw<
       Array<{ columnName: string }>
@@ -343,6 +461,28 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
       ],
     );
 
+    const pushRegistrationColumns = await prisma.$queryRaw<
+      Array<{ columnName: string }>
+    >`
+      SELECT column_name AS "columnName"
+      FROM information_schema.columns
+      WHERE table_schema = 'app' AND table_name = 'push_registrations'
+      ORDER BY ordinal_position
+    `;
+    assert.deepEqual(
+      pushRegistrationColumns.map(({ columnName }) => columnName),
+      [
+        "id",
+        "user_id",
+        "provider",
+        "platform",
+        "provider_token",
+        "status",
+        "created_at",
+        "updated_at",
+      ],
+    );
+
     const appTables = await prisma.$queryRaw<Array<{ tableName: string }>>`
       SELECT table_name AS "tableName"
       FROM information_schema.tables
@@ -358,6 +498,8 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
         "capability_assignments",
         "foundation_async_tasks",
         "outbox_messages",
+        "push_delivery_attempts",
+        "push_registrations",
         "role_assignments",
         "role_capabilities",
         "roles",
@@ -383,12 +525,12 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     >`
       SELECT schema_name AS "schemaName"
       FROM information_schema.schemata
-      WHERE schema_name IN ('auth', 'storage')
+      WHERE schema_name IN ('auth', 'storage', 'pgmq')
       ORDER BY schema_name
     `;
     assert.deepEqual(
       providerSchemas.map(({ schemaName }) => schemaName),
-      ["auth", "storage"],
+      ["auth", "pgmq", "storage"],
     );
   } finally {
     try {

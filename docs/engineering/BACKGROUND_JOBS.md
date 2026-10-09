@@ -55,10 +55,32 @@ payload meaning is immutable: incompatible changes require a new version.
 Keep old handlers while work for those versions may remain; removing one
 requires an explicit operational or migration decision.
 
-The only foundation job is `foundation.task.complete` version 1. Its payload
-contains only the stable `taskId`. The handler completes an existing
+The Phase 9 foundation job is `foundation.task.complete` version 1. Its
+payload contains only the stable `taskId`. The handler completes an existing
 foundation task only while `completedAt` is null; redelivery is a successful
 no-op that preserves the first completion time. A missing task is permanent.
+
+Phase 10 adds exactly two version-1 foundation push jobs:
+
+- `foundation.push.send` contains only `registrationId`.
+- `foundation.push.receipt.check` contains only `deliveryAttemptId`.
+
+The send handler loads the current active registration, sends fixed harmless
+proof content through `PushProvider`, and records the opaque submission handle
+under the stable send-job ID. A recorded submission prevents redelivery from
+sending again and lets it repair receipt-check scheduling. There is an
+unavoidable crash window after Expo accepts a push but before the handle is
+durably recorded; a retry in that window can duplicate the external push.
+Push delivery is at least once, not exactly once.
+
+Receipt checks use the existing durable queue's optional delayed enqueue with a
+default delay of 15 minutes. A pending receipt is retryable through ordinary
+queue redelivery; the handler does not poll in one delivery. Duplicate receipt
+jobs target the same delivery-attempt ID and are successful no-ops after a
+terminal transport status. Receipt acceptance means APNs/FCM accepted the
+notification, not that the recipient saw it. Invalid-token ticket or receipt
+errors durably disable the registration; unrelated permanent rejections do
+not.
 
 ## Retry and dead-letter policy
 
@@ -113,6 +135,5 @@ integration against local PostgreSQL and a synthetic PGMQ queue.
 build/generated prerequisites are ready. `pnpm verify:changed` intentionally
 does not run local integrations.
 
-Push notifications and their first job remain Phase 10. Product jobs,
-scheduling, deployment, dead-letter replay, and operational UI are not part of
-this foundation.
+Product notification jobs, general scheduling, deployment, dead-letter
+replay, and operational UI remain deferred.

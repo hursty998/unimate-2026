@@ -2,11 +2,15 @@ import {
   PushProviderError,
   type PushMessage,
   type PushProvider,
+  type PushReceiptResult,
   type PushSubmission,
   type PushSubmissionHandle,
+  parsePushSubmissionHandle,
 } from "./index.js";
 
 const EXPO_PUSH_ENDPOINT = "https://exp.host/--/api/v2/push/send";
+const EXPO_PUSH_RECEIPTS_ENDPOINT =
+  "https://exp.host/--/api/v2/push/getReceipts";
 const DEFAULT_TIMEOUT_MILLISECONDS = 10_000;
 
 export interface ExpoPushProviderOptions {
@@ -219,7 +223,7 @@ export class ExpoPushProvider implements PushProvider {
         );
       }
 
-      return { handle: receiptId as PushSubmissionHandle };
+      return { handle: parsePushSubmissionHandle(receiptId) };
     }
 
     if (ticket["status"] !== "error") {
@@ -247,5 +251,110 @@ export class ExpoPushProvider implements PushProvider {
     }
 
     throw new PushProviderError("rejected", "Expo Push rejected the message.");
+  }
+
+  async checkReceipt(handle: PushSubmissionHandle): Promise<PushReceiptResult> {
+    if (handle.trim().length === 0 || handle !== handle.trim()) {
+      throw new TypeError("Push submission handle must be a non-empty string.");
+    }
+
+    let response: Response;
+
+    try {
+      response = await this.fetcher(EXPO_PUSH_RECEIPTS_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ids: [handle] }),
+        signal: AbortSignal.timeout(this.timeoutMilliseconds),
+      });
+    } catch (cause) {
+      throw new PushProviderError(
+        "transient",
+        "Expo Push could not check the receipt.",
+        { cause },
+      );
+    }
+
+    if (!response.ok) {
+      throw new PushProviderError(
+        response.status === 429 || response.status >= 500
+          ? "transient"
+          : "rejected",
+        "Expo Push could not check the receipt.",
+        { status: response.status },
+      );
+    }
+
+    let responseBody: unknown;
+
+    try {
+      responseBody = await response.json();
+    } catch (cause) {
+      throw new PushProviderError(
+        "transient",
+        "Expo Push returned an invalid receipt response.",
+        { cause },
+      );
+    }
+
+    if (!isRecord(responseBody) || !isRecord(responseBody["data"])) {
+      throw new PushProviderError(
+        "transient",
+        "Expo Push returned an invalid receipt response.",
+      );
+    }
+
+    const receipt = responseBody["data"][handle];
+
+    if (receipt === undefined) {
+      return { status: "pending" };
+    }
+
+    if (!isRecord(receipt)) {
+      throw new PushProviderError(
+        "transient",
+        "Expo Push returned an invalid receipt response.",
+      );
+    }
+
+    if (receipt["status"] === "ok") {
+      return { status: "accepted" };
+    }
+
+    if (receipt["status"] !== "error") {
+      throw new PushProviderError(
+        "transient",
+        "Expo Push returned an invalid receipt response.",
+      );
+    }
+
+    const details = receipt["details"];
+    const providerError = isRecord(details) ? details["error"] : undefined;
+
+    if (providerError === "DeviceNotRegistered") {
+      throw new PushProviderError(
+        "invalid-token",
+        "The push destination is no longer registered.",
+      );
+    }
+
+    if (
+      providerError === "MessageRateExceeded" ||
+      providerError === "ExpoServerError" ||
+      providerError === "PushServerError"
+    ) {
+      throw new PushProviderError(
+        "transient",
+        "Expo Push temporarily failed to resolve the receipt.",
+      );
+    }
+
+    throw new PushProviderError(
+      "rejected",
+      "Expo Push rejected the submitted notification.",
+    );
   }
 }

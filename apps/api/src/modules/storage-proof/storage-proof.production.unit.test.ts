@@ -38,6 +38,17 @@ test("production API starts without proof storage configuration and does not reg
     });
 
     assert.equal(response.statusCode, 404);
+
+    const pushProofResponse = await app.inject({
+      method: "POST",
+      url: "/v1/foundation/push-proof",
+      headers: { authorization: "******" },
+      payload: {
+        registrationId: "f0000000-0000-7000-8000-000000000001",
+      },
+    });
+
+    assert.equal(pushProofResponse.statusCode, 404);
   } finally {
     await app.close();
   }

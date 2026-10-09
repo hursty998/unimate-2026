@@ -40,6 +40,24 @@ export interface PushSubmission {
   readonly handle: PushSubmissionHandle;
 }
 
+export type PushReceiptResult =
+  { readonly status: "accepted" } | { readonly status: "pending" };
+
 export interface PushProvider {
   send(message: PushMessage): Promise<PushSubmission>;
+  checkReceipt(handle: PushSubmissionHandle): Promise<PushReceiptResult>;
+}
+
+export function parsePushSubmissionHandle(
+  value: unknown,
+): PushSubmissionHandle {
+  if (
+    typeof value !== "string" ||
+    value.trim().length === 0 ||
+    value !== value.trim()
+  ) {
+    throw new TypeError("Push submission handle must be a non-empty string.");
+  }
+
+  return value as PushSubmissionHandle;
 }

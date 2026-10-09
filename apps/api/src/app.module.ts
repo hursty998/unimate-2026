@@ -10,6 +10,7 @@ import { AuthorizationModule } from "./modules/authorization/authorization.modul
 import { SystemModule } from "./modules/system/system.module.js";
 import { StorageProofModule } from "./modules/storage-proof/storage-proof.module.js";
 import { ObjectStorageModule } from "./providers/object-storage.module.js";
+import { PushModule } from "./modules/push/push.module.js";
 
 @Module({})
 export class AppModule {
@@ -30,6 +31,9 @@ export class AppModule {
         SystemModule,
         AuthModule.register(config, authOverrides),
         AuthorizationModule,
+        PushModule.register({
+          foundationProofEnabled: config.nodeEnv !== "production",
+        }),
         ...storageProofModules,
       ],
     };

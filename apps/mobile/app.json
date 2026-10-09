@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "ios": {
-      "bundleIdentifier": "com.unimate.app"
+      "bundleIdentifier": "com.unimate.ios"
     },
     "android": {
       "package": "com.unimate.app",
@@ -48,6 +48,7 @@
         }
       ],
       "expo-notifications",
+      "./plugins/with-ios-scene-lifecycle",
       [
         "expo-splash-screen",
         {

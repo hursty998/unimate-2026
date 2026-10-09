@@ -1,6 +1,8 @@
 type MobilePlatform = "android" | "ios" | "web";
 
 const LOCAL_SUPABASE_PORT = "55321";
+const TAILSCALE_SUPABASE_PORT = "8443";
+const TAILSCALE_HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+ts\.net$/;
 
 function normalizeHostname(hostname: string): string {
   return hostname.toLowerCase().replace(/^\[(.*)\]$/, "$1");
@@ -27,6 +29,13 @@ function isSignedStorageCapability(url: URL): boolean {
 }
 
 function isResolvedLocalOrigin(url: URL, platform: MobilePlatform): boolean {
+  if (url.protocol === "https:") {
+    return (
+      url.port === TAILSCALE_SUPABASE_PORT &&
+      TAILSCALE_HOSTNAME.test(normalizeHostname(url.hostname))
+    );
+  }
+
   if (url.protocol !== "http:" || url.port !== LOCAL_SUPABASE_PORT) {
     return false;
   }
@@ -59,7 +68,7 @@ export function resolveStorageCapabilityUrl(
     !isResolvedLocalOrigin(clientSupabaseUrl, platform)
   ) {
     throw new Error(
-      "A local Storage capability requires the platform's configured local Supabase origin on port 55321.",
+      "A local Storage capability requires the platform's configured local Supabase origin on port 55321 or a configured private Tailscale HTTPS Supabase origin on port 8443.",
     );
   }
 
