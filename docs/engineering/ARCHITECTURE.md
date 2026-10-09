@@ -567,6 +567,17 @@ duplicate window. Never claim exactly-once push delivery.
 "Push notification" and "in-app Notification" are separate concerns. Later
 UniMate Notification records will represent application attention/history.
 
+The client interaction foundation is separate from push transport: the mobile
+root installs one foreground policy (banner and list, without sound or badge)
+and one Expo Router response observer. Push `data.navigation` is accepted only
+when it matches the strict, versioned application intent contract; the initial
+foundation target maps to the existing validation route, never to an arbitrary
+payload URL. Live and cold-start responses wait for Auth bootstrap and Router
+readiness, are deduplicated in memory, and clear Expo's last-response state
+after navigation; irrelevant cold-start responses are consumed without
+navigation. Normal API authorization remains authoritative. This adds no
+Notification persistence, preferences, or inbox.
+
 ---
 
 # 19. Configuration

@@ -23,6 +23,7 @@
 
 - For mobile-facing changes, use `agent-device` with the iOS Simulator or Android emulator when available and inspect the running UI; a successful build alone is not runtime verification. Specify the platform when concurrent device sessions could make a command ambiguous.
 - For Expo web UI changes, use the VS Code integrated browser for exploratory visual verification. HTTP 200 or static-export checks do not replace a requested visual browser check.
+- Mobile tests run with Node's native TypeScript stripping: tests import TypeScript sources with `.ts` extensions, while production imports stay extensionless for the app typecheck. Keep tested runtime module graphs Node-resolvable without adding `.ts` extensions to production imports.
 
 ## Native projects
 
