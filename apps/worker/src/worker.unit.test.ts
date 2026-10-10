@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { trace, type Span } from "@opentelemetry/api";
 import { FOUNDATION_TASK_COMPLETION_JOB_TYPE } from "@unimate/jobs";
 import { PushProviderError } from "@unimate/notifications";
-import type {
-  JobQueue,
-  JsonValue,
-  QueueMessageId,
-  ReceivedQueueMessage,
+import {
+  JobQueueError,
+  type JobQueue,
+  type JsonValue,
+  type QueueMessageId,
+  type ReceivedQueueMessage,
 } from "@unimate/queue";
 import type {
   TelemetryProvider,
@@ -592,13 +593,14 @@ test("outbox dispatch failure remains visible while queued work is consumed", as
 test("recoverable worker-cycle failures are not sent to ErrorReporter", async () => {
   const observability = createTestObservability();
   const { queue } = createQueue();
-  const failure = new Error("synthetic retryable dispatch failure");
+  const failure = new JobQueueError("unavailable", "receive");
+  queue.receive = async () => {
+    throw failure;
+  };
 
   const result = await runWorkerCycle(
     {
-      dispatchOutbox: async () => {
-        throw failure;
-      },
+      dispatchOutbox: async () => 0,
       queue,
       telemetry: createTelemetry(),
       registry: createRegistry(createTestHandler(async () => {})),
@@ -612,8 +614,58 @@ test("recoverable worker-cycle failures are not sent to ErrorReporter", async ()
 
   assert.equal(result.failures.length, 1);
   assert.equal(
-    observability.logs.some((log) => log.event === "outbox.dispatch.failed"),
-    true,
+    observability.logs.filter((log) => log.event === "queue.consume.failed")
+      .length,
+    1,
+  );
+  assert.equal(observability.reports.length, 0);
+});
+
+test("continuous dead-letter summary does not duplicate the consumer failure event", async () => {
+  const observability = createTestObservability();
+  const { queue, state } = createQueue();
+  state.deadLetterResult = false;
+  let receiveCount = 0;
+  queue.receive = async () => {
+    receiveCount += 1;
+    return receiveCount === 1 ? [createMessage()] : [];
+  };
+  const cycle = await runWorkerCycle(
+    {
+      dispatchOutbox: async () => 0,
+      queue,
+      telemetry: createTelemetry(),
+      registry: createRegistry(
+        createTestHandler(async () => {
+          throw new PermanentJobError("Synthetic permanent job failure.");
+        }),
+      ),
+      config: workerConfig(),
+    },
+    observability,
+  );
+  const controller = new AbortController();
+  let failureCallbacks = 0;
+
+  await runWorkerContinuously({
+    config: workerConfig(),
+    signal: controller.signal,
+    async runCycle() {
+      return cycle;
+    },
+    onCycleFailure(failure) {
+      failureCallbacks += 1;
+      logWorkerCycleFailure(failure, observability.logger);
+      controller.abort();
+    },
+  });
+
+  assert.equal(cycle.deadLetterFailures, 1);
+  assert.equal(failureCallbacks, 1);
+  assert.equal(
+    observability.logs.filter((log) => log.event === "job.dead-letter.failed")
+      .length,
+    1,
   );
   assert.equal(observability.reports.length, 0);
 });

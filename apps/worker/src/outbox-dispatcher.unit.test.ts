@@ -6,11 +6,14 @@ import {
   type QueueMessageId,
 } from "@unimate/queue";
 import type { TelemetryProvider } from "@unimate/observability";
+import type { WorkerConfig } from "./config.js";
 import {
   dispatchOutboxBatch,
   type OutboxDispatcherDatabase,
   type OutboxDispatcherTransaction,
 } from "./outbox-dispatcher.js";
+import { logWorkerCycleFailure, runWorkerCycle } from "./runtime.js";
+import { createJobHandlerRegistry } from "./registry.js";
 import { createTestObservability } from "./test-support/observability.js";
 import { test } from "node:test";
 import { z } from "zod";
@@ -102,19 +105,47 @@ test("does not log dispatch completion before transaction commit", async () => {
     },
   };
 
-  await assert.rejects(
-    dispatchOutboxBatch({
-      database,
-      queue,
-      telemetry,
-      executionContext: observability.executionContext,
-      logger: observability.logger,
-      limit: 1,
-    }),
-    (error: unknown) => error === commitError,
-  );
+  const config: WorkerConfig = {
+    databaseUrl: "unused",
+    queueDatabaseUrl: "unused",
+    queueName: "outbox-commit-test",
+    visibilityTimeoutSeconds: 30,
+    batchSize: 1,
+    maxDeliveryAttempts: 5,
+    pollIntervalMilliseconds: 10,
+    foundationPushReceiptCheckDelaySeconds: 900,
+    observability: {
+      environment: "test",
+      logLevel: "silent",
+      traceExporter: "none",
+      slowQueryThresholdMilliseconds: 250,
+    },
+  };
+  const cycle = await runWorkerCycle({
+    dispatchOutbox: (limit) =>
+      dispatchOutboxBatch({
+        database,
+        queue,
+        telemetry,
+        executionContext: observability.executionContext,
+        logger: observability.logger,
+        limit,
+      }),
+    queue,
+    telemetry,
+    executionContext: observability.executionContext,
+    logger: observability.logger,
+    errorReporter: observability.errorReporter,
+    registry: createJobHandlerRegistry([]),
+    config,
+  });
+  for (const failure of cycle.failures) {
+    logWorkerCycleFailure(failure, observability.logger);
+  }
 
   assert.equal(callbackReturned, true);
+  assert.equal(cycle.failures.length, 1);
+  assert.equal(cycle.failures[0]?.cause, commitError);
   assert.equal(acceptedQueuePayload !== undefined, true);
   assert.equal(pendingPublishedAt instanceof Date, true);
   assert.equal(committedPublishedAt, null);

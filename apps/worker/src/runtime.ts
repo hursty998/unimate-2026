@@ -35,15 +35,11 @@ export function logWorkerCycleFailure(
   { stage, cause }: WorkerCycleFailure,
   logger: StructuredLogger,
 ): void {
-  if (stage === "outbox-dispatch") {
-    logger.error("outbox.dispatch.failed", {
-      error_type: safeErrorType(cause),
-    });
-  } else if (cause instanceof DeadLetterFailureError) {
-    logger.error("job.dead-letter.failed", {
-      error_type: cause.name,
-    });
-  } else if (cause instanceof JobQueueError) {
+  if (stage === "outbox-dispatch" || cause instanceof DeadLetterFailureError) {
+    return;
+  }
+
+  if (cause instanceof JobQueueError) {
     logger.error("queue.consume.failed", {
       operation: cause.operation,
       failure_kind: cause.kind,
