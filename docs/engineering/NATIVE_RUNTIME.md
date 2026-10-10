@@ -124,6 +124,8 @@ These are distinct capabilities, not interchangeable persistence choices.
 
 ## Development build, update, and fingerprint policy
 
+- For Mac/iPhone pairing, physical automation prerequisites, and developer
+  signing setup, see [`IOS_DEVICE_SETUP.md`](./IOS_DEVICE_SETUP.md).
 - JavaScript/TypeScript-only changes can run in the existing compatible
   development client through Metro or a published EAS Update; they do not
   require rebuilding native code.

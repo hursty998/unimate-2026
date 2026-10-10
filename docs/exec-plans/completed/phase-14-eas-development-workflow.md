@@ -37,6 +37,29 @@
 | Retrospective                               | Added narrow mobile-agent guidance for local `.env` isolation, fingerprint reuse/production-channel safety, and DevToolsSecurity consent. Largest recurring friction was simulator Metro/env selection; canonical docs now cover it, and a helper was not justified after one misconfigured start. No Skill, hook, or EAS helper added.     |
 | Focused and final verification              | 10 October 2026: mobile tests (39), typecheck, lint, and Expo dependency check passed; `verify:changed` passed (14.3s); the single `pnpm verify` passed (24.3s); `pnpm secrets:check` passed (11 files, no findings); `git diff --check` and `pnpm git-diff` passed at 14:26 BST.                                                           |
 
+## Post-implementation device setup hardening
+
+- After Phase 14, macOS DevToolsSecurity was enabled manually with user
+  approval, and Terminal plus Visual Studio Code were enabled under Developer
+  Tools privacy permissions. Physical `agent-device` accessibility now passes.
+- The authoritative Apple Developer Program Team ID is `MV9MX639KX`.
+  `FL78TG7XJV` in the certificate CN parentheses was initially mistaken for
+  the Team ID; the certificate Subject OU confirmed `MV9MX639KX`.
+- Automatic Signing succeeded with the existing Xcode-managed wildcard
+  development profile after refreshing/downloading team profiles through Xcode
+  Settings → Accounts. A manual profile override was not required and was not
+  the fix.
+- The paired/trusted physical iPhone had Developer Mode enabled and the
+  existing UniMate development client installed. Physical accessibility
+  returned semantic UI. Future sessions check readiness, ask before taking over
+  a locked/unready phone or triggering a new authorization, keep PIN/passcode
+  entry on the device, and close the active automation session without
+  routinely clearing the daemon.
+- `expo-updates` was changed from `~57.0.25` to exact `57.0.25`; the resolved
+  package remained 57.0.25. iOS fingerprint stayed
+  `38c360f44f0729aae4d7d860998d012c15920ea3`; Android stayed
+  `e3421a226a11cdf5da30729fb37fc16a4c231a26`. No build or update was needed.
+
 ## Constraints
 
 - No Phase 15 work, migrations, production/preview publication or builds, cloud

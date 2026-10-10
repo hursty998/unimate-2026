@@ -6,6 +6,8 @@
 - Native dependency inventory and rebuild policy: [`docs/engineering/NATIVE_RUNTIME.md`](../../docs/engineering/NATIVE_RUNTIME.md).
 - EAS development builds, fingerprint checks, build reuse, and OTA updates:
   [`docs/engineering/EAS_WORKFLOW.md`](../../docs/engineering/EAS_WORKFLOW.md).
+- Physical iPhone pairing, signing, runner setup, readiness, and cleanup:
+  [`docs/engineering/IOS_DEVICE_SETUP.md`](../../docs/engineering/IOS_DEVICE_SETUP.md).
 - Use installed official Expo skills and `agent-device` guidance for current framework and device workflows.
 
 ## Working directory
@@ -45,10 +47,15 @@
 - Use the remote Expo MCP for current Expo documentation and supported EAS project/build/account operations.
 - Use Xcode MCP, when available, for iOS project/build/run/destination/settings/signing and native diagnostics. For native compatibility failures, test the same installed major iOS Simulator runtime as the target device when practical before another device build.
 - On Xcode 27, use DeviceHub rather than `Simulator.app` when surfacing the visible simulator GUI; prefer surfacing the already-booted simulator instead of creating another one.
-- If physical iOS automation reports macOS DevToolsSecurity is disabled, do
-  not enable it with `sudo` without user approval. Use screenshot evidence when
-  it is sufficient; ask before changing host security to obtain accessibility
-  automation.
+- Before physical-iPhone automation, check whether the operation needs the
+  device awake/unlocked or may trigger a phone-side prompt; inspect readiness
+  first where possible. If it is not verifiably ready or new approval may be
+  needed, askQuestion and wait before taking over. PIN/passcode entry stays on
+  the phone and never in chat. Close the task's device session when finished;
+  do not stop/clean the daemon after routine tests. See
+  [`IOS_DEVICE_SETUP.md`](../../docs/engineering/IOS_DEVICE_SETUP.md).
+- Never enable macOS DevToolsSecurity with `sudo` without explicit user
+  approval; use screenshot evidence when sufficient.
 - Keep Expo config/CNG as the native source of truth; never hand-maintain generated `ios/`. If an MCP lacks an operation, use supported machine-readable or non-interactive CLI commands. Never automate interactive credential menus with PTY, keystrokes, or prompt scraping.
 - Before deciding a native rebuild is needed, compare the development EAS
   fingerprint and reuse a compatible build. Routine development work must not

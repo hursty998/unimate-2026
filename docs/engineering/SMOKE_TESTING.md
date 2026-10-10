@@ -32,6 +32,8 @@ replacements for unit/integration verification.
 
 ## Native
 
+- For new Mac/iPhone pairing, Apple development signing, and physical
+  `agent-device` setup, see [`IOS_DEVICE_SETUP.md`](./IOS_DEVICE_SETUP.md).
 - Use `agent-device` as the interaction, accessibility, screenshot, and log
   driver on the visible iOS simulator GUI and Android emulator. On Xcode 27,
   the iOS simulator GUI is DeviceHub rather than `Simulator.app`; open DeviceHub

@@ -134,6 +134,9 @@ runtime version matching the installed native build in the Foundation screen.
 Install the internal development client once from its EAS distribution link.
 Normal compatible updates require neither USB nor Metro, and the phone does not
 need to share the Mac's LAN to download the OTA bundle.
+For a new developer Mac/iPhone, Apple development signing, and physical
+`agent-device` accessibility setup, see
+[`IOS_DEVICE_SETUP.md`](./IOS_DEVICE_SETUP.md).
 
 EAS Update hosts JavaScript/assets only; it does not deploy the UniMate API or
 database. Until those services are hosted, authenticated/data flows still need
