@@ -145,3 +145,36 @@ test("provider packages cannot depend on unrelated provider packages", async () 
     ),
   );
 });
+
+test("API and worker production runtime reject console while tests and test-support remain excluded", async () => {
+  const source = [
+    "console.log('fixture');",
+    "console.trace('fixture');",
+    "console.table(['fixture']);",
+    "console.assert(false, 'fixture');",
+  ].join("\n");
+  const runtimeResults = await Promise.all(
+    [
+      "apps/api/src/runtime-console.fixture.ts",
+      "apps/worker/src/runtime-console.fixture.ts",
+    ].map((filePath) => lintText(source, filePath)),
+  );
+  const exemptResults = await Promise.all([
+    lintText(source, "apps/api/src/runtime-console.fixture.test.ts"),
+    lintText(source, "apps/worker/src/test-support/runtime-console.fixture.ts"),
+  ]);
+
+  for (const result of runtimeResults) {
+    assert.equal(
+      result.messages.filter((message) => message.ruleId === "no-console")
+        .length,
+      4,
+    );
+  }
+  for (const result of exemptResults) {
+    assert.equal(
+      result.messages.some((message) => message.ruleId === "no-console"),
+      false,
+    );
+  }
+});

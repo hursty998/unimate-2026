@@ -586,26 +586,17 @@ runner, child logs with bounded failure tails, architecture checks, a
 root/nested `AGENTS.md` hierarchy, and the UniMate retrospective Skill. Do not
 recreate those foundations.
 
-Extend the existing workflow with relevant:
+Keep formatting, lint, architecture checks, typecheck, unit tests, contract
+checks, and justified local integrations in the canonical full/changed lanes.
+Phase 12 audits this existing harness, adds versioned machine-readable results,
+protects prepared-integration wiring, and checks generated OpenAPI without
+mutation. See [`VERIFICATION.md`](./VERIFICATION.md) for current commands and
+lane semantics.
 
-- formatting;
-- lint;
-- architecture checks;
-- typecheck;
-- unit tests;
-- contract checks.
-
-Add future coverage where the repository justifies it:
-
-- integration tests;
-- API tests;
-- queue/outbox tests;
-- web Playwright smoke test;
-- native/build validation where practical.
-- periodic instruction and documentation pruning/freshness checks;
-- test/debt quality reporting and machine-readable verification output if useful;
-- further deterministic architecture checks as stable patterns emerge;
-- agent evaluations after enough representative real tasks exist.
+Do not add coverage percentages, generic debt scores, or agent evaluations
+before enough representative product-domain tasks exist. Browser/native smoke
+flows belong to Phase 13, EAS workflow to Phase 14, and CI/build packaging to
+Phase 15.
 
 Before production deployment packaging, introduce build-specific TypeScript
 configs where needed to exclude unit/integration tests and test-support code from

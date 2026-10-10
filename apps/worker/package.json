@@ -10,7 +10,7 @@
     "start": "node --env-file-if-exists=.env dist/main.js",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test dist/*.unit.test.js"
+    "test": "node ../../scripts/run-workspace-tests.mjs dist"
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.1",

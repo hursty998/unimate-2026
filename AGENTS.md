@@ -40,6 +40,8 @@ Use:
 - Database and Prisma: `packages/database/`
 - Background-job semantics: `packages/jobs/` and
   [`BACKGROUND_JOBS.md`](./docs/engineering/BACKGROUND_JOBS.md)
+- Verification lanes and reports:
+  [`VERIFICATION.md`](./docs/engineering/VERIFICATION.md)
 - Authentication: `packages/auth/`
 - Authorization catalogue: `packages/authorization/`
 - Provider packages: `packages/storage/`, `packages/queue/`,
@@ -74,7 +76,8 @@ for foundation work.
   feedback and `pnpm verify` once for complete final validation. Use
   `pnpm verify:verbose` when live child output is useful.
 - `pnpm db:test`, `pnpm auth:test`, and `pnpm authorization:test` are
-  self-contained. Their `*:prepared` forms are internal to full verification.
+  self-contained; prepared-command guidance is in
+  [`VERIFICATION.md`](./docs/engineering/VERIFICATION.md).
 - If verification fails, use its bounded failure summary; read the full
   temporary log only when needed.
 - Review the diff, remove accidental/dead code, and report checks actually run.

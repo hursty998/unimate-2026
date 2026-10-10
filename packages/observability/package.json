@@ -26,7 +26,7 @@
     "build": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test dist/*.unit.test.js dist/node/*.unit.test.js"
+    "test": "node ../../scripts/run-workspace-tests.mjs dist"
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.1",

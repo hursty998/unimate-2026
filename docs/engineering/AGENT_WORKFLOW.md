@@ -90,21 +90,20 @@ judgement and belong in the Skill. Consider hooks later only for deterministic
 lifecycle or security automation when the active coding environment supports
 them reliably.
 
-## Existing and future harness
+## Verification
 
-The current baseline already includes `pnpm verify`, `pnpm verify:changed`,
-`pnpm verify:verbose`, bounded failure summaries with full logs, architecture
-checks, the `AGENTS.md` hierarchy, and the retrospective Skill. Phase 12 should
-build on this baseline rather than recreate it. Candidate later work includes
-periodic guidance/documentation pruning, freshness checks, test/debt quality
-reporting, machine-readable verification results, and additional deterministic
-architecture constraints when real patterns emerge. Add agent evaluations only
-after enough real tasks exist to make them meaningful.
+Command and lane semantics, prepared commands, failure logs, generated
+OpenAPI checks, and JSON results are defined in
+[`VERIFICATION.md`](./VERIFICATION.md). Keep this workflow focused on agent
+sequencing rather than duplicating the verification contract.
 
 Before production deployment packaging, use build-specific TypeScript
 configurations where needed to exclude tests and test-support code from runtime
 artifacts while preserving test and typecheck coverage. This is deployment
 preparation, not a reason for a foundation-wide build restructure now.
+
+Agent evaluations should wait until enough representative product-domain tasks
+exist to make them meaningful.
 
 Expo's default `expo install --check` obtains SDK recommendations from Expo's
 remote versions endpoint. `EXPO_OFFLINE=1` uses the installed SDK's bundled

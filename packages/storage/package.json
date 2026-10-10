@@ -21,7 +21,7 @@
     "build": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test dist/*.unit.test.js"
+    "test": "node ../../scripts/run-workspace-tests.mjs dist"
   },
   "devDependencies": {
     "@types/node": "24.19.1",

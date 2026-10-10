@@ -9,9 +9,9 @@
     "watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test dist/config/*.test.js dist/cors.test.js dist/access-posture.architecture.test.js dist/infrastructure/observability/*.test.js dist/modules/system/*.test.js dist/modules/auth/*.unit.test.js dist/modules/authorization/*.unit.test.js dist/modules/storage-proof/*.unit.test.js",
+    "test": "node ../../scripts/run-workspace-tests.mjs dist",
     "openapi:generate": "node dist/generate-openapi.js",
-    "openapi:generate:prepared": "node dist/generate-openapi.js"
+    "openapi:check:prepared": "node dist/check-openapi.js"
   },
   "dependencies": {
     "@nestjs/common": "12.1.2",

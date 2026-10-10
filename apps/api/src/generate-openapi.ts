@@ -1,21 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { contract } from "@unimate/contracts";
-import { OpenAPIGenerator } from "@orpc/openapi";
-import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { dirname } from "node:path";
+import {
+  buildOpenApiDocument,
+  getOpenApiOutputPath,
+  serializeOpenApiDocument,
+} from "./openapi-document.js";
 
-const generator = new OpenAPIGenerator({
-  schemaConverters: [new ZodToJsonSchemaConverter()],
-});
-
-const document = await generator.generate(contract, {
-  info: {
-    title: "UniMate API",
-    version: "v1",
-  },
-});
-
-const outputPath = resolve(process.cwd(), "../../docs/generated/openapi.json");
-
+const outputPath = getOpenApiOutputPath();
 await mkdir(dirname(outputPath), { recursive: true });
-await writeFile(outputPath, `${JSON.stringify(document, null, 2)}\n`, "utf8");
+await writeFile(
+  outputPath,
+  serializeOpenApiDocument(await buildOpenApiDocument()),
+  "utf8",
+);
