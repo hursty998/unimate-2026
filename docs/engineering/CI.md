@@ -29,6 +29,13 @@ verification: Turbo strict mode did not forward `DIRECT_URL` to Prisma's
 pass-through fix is local and awaits a new pushed run; browser smoke has not
 yet run on GitHub.
 
+The next run, commit `0a1cd74` ([Actions run 38081690564](https://github.com/hursty998/unimate-2026/actions/runs/38081690564)),
+confirmed that fix: Prisma generation, migrations, Turbo quality tasks, and
+the artifact invariant passed. OpenAPI checking then failed because its
+ignored comparison document is absent on a clean runner. CI now generates that
+input before invoking the unchanged canonical verifier; this rerun and the
+browser smoke remain pending.
+
 ## Toolchain and sequence
 
 The job uses GitHub-hosted `ubuntu-24.04`, Node from `.node-version`, pnpm from
@@ -47,9 +54,12 @@ The job:
    privileged values, and exports only required local environment variables;
 4. generates Prisma Client and applies committed Prisma migrations to the
    fresh database through `pnpm db:migrate:deploy`;
-5. runs the canonical `pnpm verify` lane with a safe machine-readable report:
+5. generates the ignored OpenAPI verification input with
+   `pnpm openapi:generate` because it is intentionally absent from a clean
+   checkout;
+6. runs the canonical `pnpm verify` lane with a safe machine-readable report:
    `node scripts/verify.mjs --report-json .ci-artifacts/verify.json`;
-6. installs Chromium and its Linux dependencies with Playwright, installs
+7. installs Chromium and its Linux dependencies with Playwright, installs
    `lsof` for the smoke harness's process-ownership checks, and runs
    `pnpm smoke:web` against that same local stack.
 
@@ -61,8 +71,9 @@ does not upload Playwright screenshots, traces, or videos.
 
 Reproduce foundation failures with `pnpm verify`; reproduce the browser flow
 with `pnpm smoke:web` after configuring local `.env` files and starting local
-Supabase. Destructive database commands remain guarded by the existing
-loopback endpoint checks.
+Supabase. On a clean checkout, run `pnpm openapi:generate` before `pnpm verify`
+to create its ignored comparison input. Destructive database commands remain
+guarded by the existing loopback endpoint checks.
 
 The workflow uploads only the verifier's safe JSON report, including when
 verification fails, for seven days. The report contains step status and

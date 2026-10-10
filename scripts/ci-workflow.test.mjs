@@ -56,6 +56,18 @@ test("the single Foundation job delegates quality checks to the canonical verifi
   assert.match(workflow, /cancel-in-progress:\s*true/);
 });
 
+test("CI generates the ignored OpenAPI check input before canonical verification", () => {
+  const generateOpenApiIndex = workflow.indexOf("run: pnpm openapi:generate");
+  const verifyIndex = workflow.indexOf(
+    "node scripts/verify.mjs --report-json .ci-artifacts/verify.json",
+  );
+
+  assert.notEqual(generateOpenApiIndex, -1);
+  assert.notEqual(verifyIndex, -1);
+  assert.ok(generateOpenApiIndex < verifyIndex);
+  assert.equal(workflow.split("run: pnpm openapi:generate").length - 1, 1);
+});
+
 test("Prisma generation receives DIRECT_URL through Turbo strict mode without hashing it", () => {
   assert.deepEqual(turbo.tasks.generate?.passThroughEnv, ["DIRECT_URL"]);
   assert.equal(

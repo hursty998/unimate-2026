@@ -18,8 +18,25 @@ execution and merge protection have not been proved.
   `DIRECT_URL` reached Prisma validation through Turbo and was rejected before
   generation; `pnpm verify:changed` passed in 13.4 seconds; final
   `pnpm verify` passed all 15 steps in 22.7 seconds.
-- The rerun and remote artifact/ruleset acceptance remain pending after the
-  user commits and pushes this fix.
+- Commit `0a1cd74` contains this fix; its remote run confirmed the Turbo
+  generation, lint/typecheck/build/test, and artifact stages now pass.
+
+## Second remote run follow-up
+
+- Commit `0a1cd74` parsed and ran successfully through setup, Prisma
+  generation, migrations, Turbo lint/typecheck/build/tests, and production
+  artifact checks.
+- The OpenAPI check failed because `docs/generated/openapi.json` is
+  intentionally ignored and absent from a clean checkout. The safe report was
+  uploaded and inspected; database and provider lanes plus browser smoke were
+  not run after this failure.
+- Fix: run the existing `pnpm openapi:generate` before the canonical verifier
+  in CI. The verifier itself retains its non-mutating OpenAPI check.
+- Local proof: `pnpm openapi:generate && pnpm openapi:check:prepared` passed;
+  64 focused tooling tests passed; `pnpm verify:changed` passed in 5.9
+  seconds; final `pnpm verify` passed all 15 steps in 23.1 seconds.
+- Remote rerun, safe artifact inspection, browser smoke, and required-check
+  configuration remain pending after the user commits and pushes this fix.
 
 ## Baseline
 

@@ -98,7 +98,9 @@ cross-process lock is needed.
 oRPC/Zod contract. `pnpm openapi:check` builds the API and compares the
 deterministically serialized current document with that artifact without
 writing it. A stale or missing artifact fails with the generation command.
-Full verification uses check semantics after the canonical build.
+The output is intentionally ignored; generate it before full verification on a
+clean checkout. CI runs `pnpm openapi:generate` as setup, then uses the same
+non-mutating check in `pnpm verify`.
 
 ## Adding verification
 

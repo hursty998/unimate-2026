@@ -57,6 +57,9 @@ jobs:
       - name: Apply committed migrations from zero
         run: pnpm db:migrate:deploy
 
+      - name: Generate OpenAPI verification input
+        run: pnpm openapi:generate
+
       - name: Run canonical foundation verification
         run: |
           mkdir -p .ci-artifacts
