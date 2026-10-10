@@ -38,9 +38,22 @@ That cold run took 5m39s total: Supabase startup 103s, canonical verification
 116.2s, Chromium install 22s, and browser smoke 41.1s; dependency install was
 10s and OpenAPI generation 9s. The ignored OpenAPI regeneration has since been
 removed by committing the generated snapshot. The local `.turbo/cache` was
-about 45 MB at review time. GitHub Actions caching is intended to reuse
-build/typecheck/unit-test outputs on future PR runs; measure actual restore
-hits and savings in the next successful run.
+about 45 MB at review time.
+
+Final hardening was committed as `5c3f86e` and merged through PR #1 after its
+required `Foundation` run passed. The PR run initially missed the Turbo cache
+because no development-branch entry existed yet. The subsequent development
+push run ([38088959366](https://github.com/hursty998/unimate-2026/actions/runs/38088959366))
+passed in 6m14s, passed `pnpm verify` in 161.8s, and saved a 1,518,216-byte
+Turbo cache. A warm run on the same SHA
+([38089409619](https://github.com/hursty998/unimate-2026/actions/runs/38089409619))
+restored that entry, passed `pnpm verify` in 25.5s, and completed in 3m26s.
+That reduced canonical verification by 136s (about 84%) and total job time by
+168s (about 45%) against the cold run. The API build used by smoke also logged
+8 of 9 Turbo tasks as cache hits. The PR check passed in 4m38s before a base
+branch cache existed. Cache restore/save are best-effort and do not gate
+correctness. The preflight run, PR, and merged commit are documented in
+[`phase-15-ci.md`](../exec-plans/completed/phase-15-ci.md).
 
 ## Toolchain and sequence
 

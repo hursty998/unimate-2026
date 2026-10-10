@@ -1,7 +1,7 @@
 # Phase 15 — Continuous Integration
 
-**Status: Final hardening in progress.** The base Phase 15 implementation and
-merge gate passed; the OpenAPI/cache hardening below still needs remote proof.
+**Status: Complete.** Local verification, final GitHub proof, cache reuse, and
+the required `Foundation` check on `development` are verified.
 
 ## First remote run follow-up
 
@@ -77,11 +77,39 @@ merge gate passed; the OpenAPI/cache hardening below still needs remote proof.
   is an optimization and correctness remains independent of cache availability.
 - Focused local proof: `pnpm openapi:generate` followed by the check passed
   before making the snapshot tracked; afterwards `pnpm openapi:check` passed
-  without generation and 65 tooling tests passed. Remote cache restore, save,
-  and runtime impact remain pending the next GitHub run.
+  without generation and 65 tooling tests passed. Remote cache behavior is
+  demonstrated in the final runs below.
 - Final `pnpm verify:changed` passed in 6.9 seconds and the one final local
   `pnpm verify` passed all 15 steps in 22.7 seconds. No smoke code changed, so
   local `pnpm smoke:web` was not repeated.
+
+## Final remote hardening proof
+
+- The direct push was rejected because `Foundation` was still expected for the
+  new commit. No protection was bypassed. A validation branch was pushed and
+  the complete workflow was manually run on the exact commit; it passed all
+  15 verifier steps and Chromium smoke. PR #1 was then opened, passed
+  `Foundation`, and merged normally to `development` as
+  `091ec8850f4035b0c616af212b4c31c528f033dd`. The validation branch remains;
+  no branch was deleted.
+- PR run [38088604650](https://github.com/hursty998/unimate-2026/actions/runs/38088604650)
+  passed in 4m38s. At that point there was no Turbo cache on the base branch,
+  so restore correctly missed and PR cache save was skipped.
+- The merged development push,
+  [38088959366](https://github.com/hursty998/unimate-2026/actions/runs/38088959366),
+  passed all checks and smoke in 6m14s. Its 161.8s verifier report passed all
+  15 steps; successful trusted-push cache save wrote a 1,518,216-byte
+  `.turbo/cache` archive.
+- Warm run
+  [38089409619](https://github.com/hursty998/unimate-2026/actions/runs/38089409619)
+  restored the exact development cache entry. All verifier steps passed in
+  25.5s; total workflow time was 3m26s. The API build used by browser smoke
+  logged 8/9 Turbo task hits. The 161.8s-to-25.5s verifier reduction is 136.3s
+  (about 84%); whole-job time fell 168s (about 45%) between the cold push and
+  warm run. Both safe JSON reports were inspected.
+- Final status check remains `Foundation` from `github-actions` app ID 15368.
+  Branch protection still has no required reviews, no up-to-date requirement,
+  and no push restrictions. Force-push/delete settings were not changed.
 
 ## Baseline
 
@@ -158,11 +186,12 @@ TypeScript tests and requires their production/test outputs to be covered.
 The largest recurring friction was implicit clean-checkout state: Prisma's
 Turbo environment and the ignored OpenAPI document were available locally but
 not represented as safe CI inputs. Task-scoped environment forwarding and a
-committed OpenAPI snapshot make both invariants explicit. Cache performance
-cannot be measured locally because the target is GitHub's cache service.
+committed OpenAPI snapshot make both invariants explicit. GitHub's remote
+cache was measured with cold and warm Actions runs; local runs cannot prove
+cache service behavior.
 
 ## Acceptance
 
-The base Phase 15 implementation is complete, but this final hardening remains
-active until the updated workflow passes remotely, the safe report is inspected,
-and cache restore/save behavior is verified. Do not begin Phase 16.
+The hardened workflow passed on `development`, the safe verifier artifacts
+were inspected, warm cache restore was proved, and the required `Foundation`
+status check remains enabled. Phase 15 is complete. Do not begin Phase 16.
