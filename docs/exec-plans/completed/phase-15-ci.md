@@ -1,7 +1,7 @@
 # Phase 15 — Continuous Integration
 
-**Status: ACTIVE.** Local implementation is complete; remote workflow
-execution and merge protection have not been proved.
+**Status: Complete.** Local implementation, remote GitHub Actions proof, and
+the required status check on `development` are verified.
 
 ## First remote run follow-up
 
@@ -35,8 +35,18 @@ execution and merge protection have not been proved.
 - Local proof: `pnpm openapi:generate && pnpm openapi:check:prepared` passed;
   64 focused tooling tests passed; `pnpm verify:changed` passed in 5.9
   seconds; final `pnpm verify` passed all 15 steps in 23.1 seconds.
-- Remote rerun, safe artifact inspection, browser smoke, and required-check
-  configuration remain pending after the user commits and pushes this fix.
+
+## Final remote proof
+
+- Commit `5306caf` passed the GitHub Actions `Foundation` job in
+  [run 38082442800](https://github.com/hursty998/unimate-2026/actions/runs/38082442800).
+- The canonical verifier passed all 15 steps in 116.2 seconds. The safe JSON
+  report artifact was downloaded and inspected; every step passed.
+- Chromium browser smoke passed its single end-to-end test in 33.7 seconds
+  (41.1 seconds including harness cleanup). The synthetic Auth and UniMate
+  identity fixture was cleaned. No browser traces or videos were uploaded.
+- GitHub confirmed check-run name `Foundation`, provided by the `github-actions`
+  app (ID 15368).
 
 ## Baseline
 
@@ -71,19 +81,19 @@ execution and merge protection have not been proved.
 
 ## Repository rules
 
-Read-only GitHub inspection found `development` is the default branch, has no
-branch protection, and the repository has no rulesets or prior Actions runs.
-The proposed required status check is exactly `Foundation`. No remote rule has
-been modified; do not claim merge blocking until the post-push follow-up.
-For that follow-up, require `Foundation` for the normal PR path without
-silently adding a pull-request-only policy, deployment environment, or native
-check. Preserve the current direct-push policy unless repository owners
-explicitly choose otherwise.
+`development` is the default branch. Initial inspection found no branch
+protection or rulesets. After the successful run, branch protection was
+configured and read back with exactly the `Foundation` check from
+`github-actions` app ID 15368, strict up-to-date checking disabled, and
+administrator enforcement enabled. No pull-request review requirement,
+push restrictions, deployment environment, or native checks were added.
+Force-pushes and branch deletion remain enabled, matching the prior
+permissions. The repository has no rulesets.
 
 ## Local evidence
 
 - `pnpm install --frozen-lockfile` passed without lockfile changes.
-- Focused tooling suite passed (62 tests); formatting and secret scanning
+- Focused tooling suite passed (64 tests); formatting and secret scanning
   passed.
 - Production artifact invariant passed for all ten workspaces and confirmed
   19 required test-only output sentinels. Affected Turbo build, test-build,
@@ -93,7 +103,8 @@ explicitly choose otherwise.
 - `pnpm verify:changed` passed in 25.7 seconds after adding `.test-dist/` to
   the shared ESLint ignores; the first attempt exposed that generated tests
   were being linted as runtime JavaScript.
-- The single final `pnpm verify` passed all 15 steps in 22.1 seconds.
+- Final local `pnpm verify` after the CI fixes passed all 15 steps in
+  23.1 seconds.
 - All standalone affected integrations passed: database, Auth, Storage proof,
   push, authorization, providers, worker, and observability.
 - After loopback validation and explicit local-reset consent,
@@ -109,18 +120,14 @@ explicitly choose otherwise.
 The first artifact audit was too narrow and missed five workspaces. Persisted
 that lesson as a tooling invariant which discovers `tsc` workspaces with
 TypeScript tests and requires their production/test outputs to be covered.
-The largest remaining friction is the unavailable remote Ubuntu/Docker proof;
-that cannot be fixed or validated locally and remains the explicit post-push
-checkpoint.
+The largest recurring friction was implicit clean-checkout state: the ignored
+OpenAPI document and Turbo-filtered Prisma environment were available locally
+but missing from task setup in CI. Explicit bootstrap steps and tooling
+invariants now capture both requirements.
 
-## Remote acceptance pending
+## Acceptance
 
-After the user commits and pushes:
-
-1. confirm GitHub parses the workflow;
-2. inspect a real Actions run and verify the `Foundation` job passes;
-3. inspect the safe report artifact;
-4. configure or verify the required `Foundation` status check on `development`;
-5. only then move this plan to `docs/exec-plans/completed/`.
-
-There is no remote PASS yet. Do not begin Phase 16.
+GitHub parsed the workflow, the real `Foundation` job and browser smoke passed,
+the safe report was inspected, and the `Foundation` required status check is
+active on `development`. Phase 15 is complete. Do not begin Phase 16 as part of
+this task.

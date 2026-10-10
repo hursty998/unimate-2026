@@ -13,28 +13,25 @@ The `CI` workflow runs for pull requests targeting `development`, pushes to
 `Foundation`; this is the exact status check intended for the later merge
 gate.
 
-As inspected before the workflow is pushed, `development` has no branch
-protection and the repository has no rulesets. GitHub had no workflow runs for
-this repository at that point. No remote setting has been changed, and
-`Foundation` is not yet a required status check. Remote workflow execution and
-the merge rule remain pending until this workflow is committed, pushed, and
-passes on GitHub. The follow-up should require `Foundation` for the normal PR
-path; do not change the current direct-push policy or add unrelated environment
-or native checks without an owner decision.
+Initial inspection found no branch protection or rulesets on `development`.
+After the successful run, branch protection was configured and verified with
+the `Foundation` status check from the GitHub Actions app (ID 15368). Up-to-date
+branch checking is disabled; administrator enforcement is enabled. No PR
+review requirement or push restrictions were added; force-pushes and branch
+deletion remain enabled. Repository rulesets remain unused.
 
 The first real run, commit `f3c582e` ([Actions run 38080850708](https://github.com/hursty998/unimate-2026/actions/runs/38080850708)),
-confirmed GitHub parsed and started the workflow but failed during canonical
-verification: Turbo strict mode did not forward `DIRECT_URL` to Prisma's
-`generate` task. The uploaded safe report was inspected. The task-scoped
-pass-through fix is local and awaits a new pushed run; browser smoke has not
-yet run on GitHub.
+failed because Turbo strict mode did not forward `DIRECT_URL` to Prisma's
+`generate` task. The task-scoped pass-through fix is in place.
 
 The next run, commit `0a1cd74` ([Actions run 38081690564](https://github.com/hursty998/unimate-2026/actions/runs/38081690564)),
-confirmed that fix: Prisma generation, migrations, Turbo quality tasks, and
-the artifact invariant passed. OpenAPI checking then failed because its
-ignored comparison document is absent on a clean runner. CI now generates that
-input before invoking the unchanged canonical verifier; this rerun and the
-browser smoke remain pending.
+confirmed the Turbo fix but exposed the ignored OpenAPI input missing on clean
+runners. CI now generates it before running the unchanged canonical verifier.
+
+The final run, commit `5306caf` ([Actions run 38082442800](https://github.com/hursty998/unimate-2026/actions/runs/38082442800)),
+passed the complete foundation verifier and Chromium smoke. Its safe report
+artifact was inspected. The `Foundation` check is now required on
+`development`.
 
 ## Toolchain and sequence
 
