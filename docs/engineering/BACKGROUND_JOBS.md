@@ -36,6 +36,9 @@ claims one at a time with PostgreSQL `FOR UPDATE SKIP LOCKED`. It keeps the row
 lock through queue acceptance and the `publishedAt` update in the same short
 transaction. A queue failure rolls that transaction back. `publishedAt` means
 the queue accepted the message, not that a handler completed it.
+The `outbox.dispatch.completed` event is emitted only after that transaction
+has returned successfully; a commit failure emits one failure event and
+preserves the existing retry/at-least-once behavior.
 
 The envelope ID is the Outbox UUID, so redispatch produces the same logical
 job. Queue acceptance followed by a database rollback can publish a duplicate;

@@ -1,4 +1,3 @@
-import { JobQueueError } from "@unimate/queue";
 import { safeErrorType } from "@unimate/observability";
 import { pathToFileURL } from "node:url";
 import {
@@ -7,7 +6,6 @@ import {
   type NodeObservabilityRuntime,
 } from "@unimate/observability/node";
 import { parseWorkerConfig } from "./config.js";
-import { DeadLetterFailureError } from "./consumer.js";
 import { createFoundationTaskHandler } from "./foundation-task-handler.js";
 import {
   createFoundationPushReceiptCheckHandler,
@@ -18,9 +16,9 @@ import { createWorkerProviders } from "./providers/worker-providers.js";
 import { PrismaPushDeliveryRepository } from "./push-delivery-repository.js";
 import { createJobHandlerRegistry } from "./registry.js";
 import {
+  logWorkerCycleFailure,
   runWorkerContinuously,
   runWorkerCycle,
-  type WorkerCycleFailure,
   type WorkerCycleResult,
 } from "./runtime.js";
 
@@ -34,47 +32,6 @@ function parseArguments(arguments_: readonly string[]): { once: boolean } {
   }
 
   throw new TypeError("Worker accepts only the optional --once argument.");
-}
-
-function reportCycleFailure(
-  { stage, cause }: WorkerCycleFailure,
-  runtime: NodeObservabilityRuntime,
-): void {
-  if (stage === "outbox-dispatch") {
-    runtime.logger.error("outbox.dispatch.failed", {
-      error_type: safeErrorType(cause),
-    });
-  } else if (cause instanceof DeadLetterFailureError) {
-    runtime.logger.error("job.dead-letter.failed", {
-      error_type: cause.name,
-    });
-  } else if (cause instanceof JobQueueError) {
-    runtime.logger.error("queue.consume.failed", {
-      operation: cause.operation,
-      failure_kind: cause.kind,
-    });
-  } else {
-    runtime.logger.error("worker.cycle.failed", {
-      stage,
-      error_type: safeErrorType(cause),
-    });
-  }
-
-  if (
-    !(cause instanceof JobQueueError) &&
-    !(cause instanceof DeadLetterFailureError)
-  ) {
-    void Promise.resolve(
-      runtime.errorReporter.captureException(cause, {
-        operation: `worker.cycle.${stage}`,
-      }),
-    ).catch((reportingError: unknown) => {
-      runtime.logger.error("error.reporting.failed", {
-        error_type: safeErrorType(reportingError),
-        operation: `worker.cycle.${stage}`,
-      });
-    });
-  }
 }
 
 function logCycleSummary(
@@ -179,7 +136,7 @@ export async function main(
       const result = await runWorkerCycle(dependencies);
       logCycleSummary(result, observability);
       for (const failure of result.failures) {
-        reportCycleFailure(failure, observability);
+        logWorkerCycleFailure(failure, observability.logger);
       }
       if (result.failures.length > 0 || result.deadLetterFailures > 0) {
         process.exitCode = 1;
@@ -196,7 +153,7 @@ export async function main(
         return result;
       },
       onCycleFailure(failure) {
-        reportCycleFailure(failure, observability);
+        logWorkerCycleFailure(failure, observability.logger);
       },
     });
   } catch (error) {

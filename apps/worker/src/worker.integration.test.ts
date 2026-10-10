@@ -216,6 +216,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
             eventType: foundationJobType,
             payloadVersion: 1,
             payload: { taskId: task.id },
+            correlationId: randomUUID(),
           },
         });
         rolledBackOutboxId = outbox.id;
@@ -246,6 +247,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
       data: {
         eventType: foundationJobType,
         payload: { taskId: concurrencyTask.id },
+        correlationId: randomUUID(),
       },
     });
     outboxIds.push(concurrencyOutbox.id);
@@ -287,6 +289,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
       data: {
         eventType: foundationJobType,
         payload: { taskId: failedPublishTask.id },
+        correlationId: randomUUID(),
       },
     });
     outboxIds.push(failedPublishOutbox.id);
@@ -323,6 +326,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
             eventType: foundationJobType,
             payloadVersion: 1,
             payload: { taskId: task.id },
+            correlationId: randomUUID(),
           },
         });
         return { task, outbox };

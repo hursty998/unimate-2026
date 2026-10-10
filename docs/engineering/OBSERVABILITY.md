@@ -70,7 +70,8 @@ Prisma 7.10 query extensions measure semantic operation duration. Only
 operations at or above `DATABASE_SLOW_QUERY_THRESHOLD_MS` (default 250 ms)
 emit `database.query.slow` with `duration_ms`, `threshold_ms`, and model/
 operation when available. Raw operations omit the model. SQL text, parameters,
-and Prisma arguments are never captured.
+and Prisma arguments are never captured. Observer callbacks are best-effort:
+their failures never change the result of the database operation.
 
 ## Health and readiness
 

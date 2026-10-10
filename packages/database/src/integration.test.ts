@@ -18,6 +18,7 @@ interface ColumnInfo {
   tableName: string;
   columnName: string;
   dataType: string;
+  columnDefault: string | null;
 }
 
 function hasCode(error: unknown, code: string): boolean {
@@ -258,8 +259,13 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
       sequence: 1,
       nested: { ready: true },
     } satisfies Prisma.InputJsonValue;
+    const outboxCorrelationId = randomUUID();
     const outboxMessage = await prisma.outboxMessage.create({
-      data: { eventType: "foundation.integration-test", payload },
+      data: {
+        eventType: "foundation.integration-test",
+        payload,
+        correlationId: outboxCorrelationId,
+      },
     });
     outboxIds.push(outboxMessage.id);
     const storedMessage = await prisma.outboxMessage.findUniqueOrThrow({
@@ -269,7 +275,7 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     assert.deepEqual(storedMessage.payload, payload);
     assert.equal(storedMessage.payloadVersion, 1);
     assert.equal(storedMessage.publishedAt, null);
-    assert.match(storedMessage.correlationId, /^[0-9a-f-]{36}$/i);
+    assert.equal(storedMessage.correlationId, outboxCorrelationId);
     assert.equal(storedMessage.traceparent, null);
     assert.equal(storedMessage.tracestate, null);
     assert.ok(storedMessage.createdAt instanceof Date);
@@ -304,6 +310,7 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
           eventType: "foundation.invalid-version",
           payloadVersion: 0,
           payload: {},
+          correlationId: randomUUID(),
         },
       }),
       isPayloadVersionConstraintError,
@@ -329,7 +336,8 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
         table_schema AS "schemaName",
         table_name AS "tableName",
         column_name AS "columnName",
-        data_type AS "dataType"
+        data_type AS "dataType",
+        column_default AS "columnDefault"
       FROM information_schema.columns
       WHERE table_schema = 'app'
         AND (
@@ -404,6 +412,14 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     assert.equal(columnType("outbox_messages", "id"), "uuid");
     assert.equal(columnType("outbox_messages", "payload"), "jsonb");
     assert.equal(columnType("outbox_messages", "correlation_id"), "uuid");
+    assert.equal(
+      columns.find(
+        (item) =>
+          item.tableName === "outbox_messages" &&
+          item.columnName === "correlation_id",
+      )?.columnDefault,
+      null,
+    );
     assert.equal(
       columnType("outbox_messages", "traceparent"),
       "character varying",
@@ -627,5 +643,26 @@ test("reports slow Prisma operation timing without query text or arguments", asy
     assert.deepEqual(belowThreshold, []);
   } finally {
     await fastQueryClient.$disconnect();
+  }
+});
+
+test("a throwing slow-query observer does not change a successful query result", async () => {
+  const prisma = createDatabaseClient({
+    connectionString,
+    slowQueryThresholdMilliseconds: 0,
+    onSlowQuery() {
+      throw new Error("synthetic observability callback failure");
+    },
+  });
+
+  try {
+    await prisma.$connect();
+    const result = await prisma.$queryRaw<Array<{ value: number }>>`
+      SELECT 42::integer AS value
+    `;
+
+    assert.deepEqual(result, [{ value: 42 }]);
+  } finally {
+    await prisma.$disconnect();
   }
 });

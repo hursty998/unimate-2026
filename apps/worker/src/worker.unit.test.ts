@@ -28,6 +28,7 @@ import {
 import {
   runWorkerContinuously,
   runWorkerCycle as runWorkerCycleImpl,
+  logWorkerCycleFailure,
   type WorkerDependencies,
 } from "./runtime.js";
 import { createTestObservability } from "./test-support/observability.js";
@@ -586,6 +587,35 @@ test("outbox dispatch failure remains visible while queued work is consumed", as
   assert.equal(result.failures.length, 1);
   assert.equal(result.failures[0]?.stage, "outbox-dispatch");
   assert.equal(result.failures[0]?.cause, dispatchFailure);
+});
+
+test("recoverable worker-cycle failures are not sent to ErrorReporter", async () => {
+  const observability = createTestObservability();
+  const { queue } = createQueue();
+  const failure = new Error("synthetic retryable dispatch failure");
+
+  const result = await runWorkerCycle(
+    {
+      dispatchOutbox: async () => {
+        throw failure;
+      },
+      queue,
+      telemetry: createTelemetry(),
+      registry: createRegistry(createTestHandler(async () => {})),
+      config: workerConfig(),
+    },
+    observability,
+  );
+  for (const failure of result.failures) {
+    logWorkerCycleFailure(failure, observability.logger);
+  }
+
+  assert.equal(result.failures.length, 1);
+  assert.equal(
+    observability.logs.some((log) => log.event === "outbox.dispatch.failed"),
+    true,
+  );
+  assert.equal(observability.reports.length, 0);
 });
 
 test("receives the next message only after the preceding handler finishes", async () => {

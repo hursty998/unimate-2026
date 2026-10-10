@@ -4,12 +4,52 @@ import {
   type ExecutionContextProvider,
   type StructuredLogger,
   type TelemetryProvider,
+  type TracePropagationContext,
 } from "@unimate/observability";
 import { jobEnvelopeSchema } from "@unimate/jobs";
 import type { createDatabaseClient } from "@unimate/database";
-import type { JobQueue } from "@unimate/queue";
+import type { JobQueue, QueueMessageId } from "@unimate/queue";
 
 type WorkerDatabase = ReturnType<typeof createDatabaseClient>;
+type OutboxMessageRecord = Awaited<
+  ReturnType<WorkerDatabase["outboxMessage"]["findUniqueOrThrow"]>
+>;
+
+export interface OutboxDispatcherTransaction {
+  $queryRaw<T = unknown>(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<T>;
+  outboxMessage: {
+    findUniqueOrThrow(input: {
+      where: { id: string };
+    }): Promise<OutboxMessageRecord>;
+    update(input: {
+      where: { id: string };
+      data: { publishedAt: Date };
+    }): Promise<unknown>;
+  };
+}
+
+export interface OutboxDispatcherDatabase {
+  $transaction<T>(
+    operation: (transaction: OutboxDispatcherTransaction) => Promise<T>,
+    options: { maxWait: number; timeout: number },
+  ): Promise<T>;
+}
+
+interface DispatchAttempt {
+  readonly message: OutboxMessageRecord;
+  readonly originatingContext?: TracePropagationContext;
+  dispatchContext?: TracePropagationContext;
+  queueMessageId?: QueueMessageId;
+}
+
+interface DispatchResult {
+  readonly message: OutboxMessageRecord;
+  readonly queueMessageId: QueueMessageId;
+  readonly dispatchContext?: TracePropagationContext;
+}
 
 export async function dispatchOutboxBatch({
   database,
@@ -19,7 +59,7 @@ export async function dispatchOutboxBatch({
   logger,
   limit,
 }: {
-  readonly database: WorkerDatabase;
+  readonly database: OutboxDispatcherDatabase;
   readonly queue: JobQueue;
   readonly telemetry: TelemetryProvider;
   readonly executionContext: ExecutionContextProvider;
@@ -33,68 +73,88 @@ export async function dispatchOutboxBatch({
   let dispatched = 0;
 
   while (dispatched < limit) {
-    const published = await database.$transaction(
-      async (transaction) => {
-        // Prisma cannot express FOR UPDATE SKIP LOCKED for row claims.
-        const [lockedRow] = await transaction.$queryRaw<Array<{ id: string }>>`
-          SELECT id
-          FROM app.outbox_messages
-          WHERE published_at IS NULL
-          ORDER BY created_at ASC, id ASC
-          LIMIT 1
-          FOR UPDATE SKIP LOCKED
-        `;
+    let attempt: DispatchAttempt | undefined;
+    let result: DispatchResult | null;
 
-        if (lockedRow === undefined) {
-          return false;
-        }
+    try {
+      result = await database.$transaction(
+        async (transaction) => {
+          // Prisma cannot express FOR UPDATE SKIP LOCKED for row claims.
+          const [lockedRow] = await transaction.$queryRaw<
+            Array<{ id: string }>
+          >`
+            SELECT id
+            FROM app.outbox_messages
+            WHERE published_at IS NULL
+            ORDER BY created_at ASC, id ASC
+            LIMIT 1
+            FOR UPDATE SKIP LOCKED
+          `;
 
-        const message = await transaction.outboxMessage.findUniqueOrThrow({
-          where: { id: lockedRow.id },
-        });
-        const originatingContext = message.traceparent
-          ? {
-              traceparent: message.traceparent,
-              ...(message.tracestate ? { tracestate: message.tracestate } : {}),
-            }
-          : undefined;
+          if (lockedRow === undefined) {
+            return null;
+          }
 
-        return executionContext.run(
-          { correlationId: message.correlationId },
-          () =>
-            telemetry.runWithPropagationContext(originatingContext, () =>
-              telemetry.runInSpan({
-                name: "outbox.dispatch",
-                attributes: {
-                  "outbox.id": message.id,
-                  "unimate.correlation_id": message.correlationId,
-                  "job.id": message.id,
-                  "job.type": message.eventType,
-                  "job.version": message.payloadVersion,
-                },
-                async operation(span) {
-                  const dispatchContext = telemetry.capturePropagationContext();
-                  const job = jobEnvelopeSchema.parse({
-                    id: message.id,
-                    type: message.eventType,
-                    version: message.payloadVersion,
-                    payload: message.payload,
-                    observability: {
-                      correlationId: message.correlationId,
-                      ...(dispatchContext
-                        ? {
-                            traceparent: dispatchContext.traceparent,
-                            ...(dispatchContext.tracestate
-                              ? { tracestate: dispatchContext.tracestate }
-                              : {}),
-                          }
-                        : {}),
-                    },
-                  });
-                  const queuedPayload = z.json().parse(job);
+          const message = await transaction.outboxMessage.findUniqueOrThrow({
+            where: { id: lockedRow.id },
+          });
+          const originatingContext = message.traceparent
+            ? {
+                traceparent: message.traceparent,
+                ...(message.tracestate
+                  ? { tracestate: message.tracestate }
+                  : {}),
+              }
+            : undefined;
+          attempt = {
+            message,
+            ...(originatingContext ? { originatingContext } : {}),
+          };
 
-                  try {
+          return executionContext.run(
+            {
+              correlationId: message.correlationId,
+              jobId: message.id,
+            },
+            () =>
+              telemetry.runWithPropagationContext(originatingContext, () =>
+                telemetry.runInSpan({
+                  name: "outbox.dispatch",
+                  attributes: {
+                    "outbox.id": message.id,
+                    "unimate.correlation_id": message.correlationId,
+                    "job.id": message.id,
+                    "job.type": message.eventType,
+                    "job.version": message.payloadVersion,
+                  },
+                  async operation(span) {
+                    const dispatchContext =
+                      telemetry.capturePropagationContext();
+                    if (dispatchContext && attempt) {
+                      attempt.dispatchContext = dispatchContext;
+                    }
+                    const job = jobEnvelopeSchema.parse({
+                      id: message.id,
+                      type: message.eventType,
+                      version: message.payloadVersion,
+                      payload: message.payload,
+                      observability: {
+                        correlationId: message.correlationId,
+                        ...(dispatchContext
+                          ? {
+                              traceparent: dispatchContext.traceparent,
+                              ...(dispatchContext.tracestate
+                                ? { tracestate: dispatchContext.tracestate }
+                                : {}),
+                            }
+                          : {}),
+                      },
+                    });
+                    const queuedPayload = z.json().parse(job);
                     const queueMessageId = await queue.enqueue(queuedPayload);
+                    if (attempt) {
+                      attempt.queueMessageId = queueMessageId;
+                    }
                     span.setAttribute("queue.message_id", queueMessageId);
 
                     await transaction.outboxMessage.update({
@@ -102,36 +162,75 @@ export async function dispatchOutboxBatch({
                       data: { publishedAt: new Date() },
                     });
 
-                    logger.info("outbox.dispatch.completed", {
-                      outbox_id: message.id,
-                      job_id: job.id,
-                      job_type: job.type,
-                      job_version: job.version,
-                      queue_message_id: queueMessageId,
-                    });
+                    return {
+                      message,
+                      queueMessageId,
+                      ...(dispatchContext ? { dispatchContext } : {}),
+                    };
+                  },
+                }),
+              ),
+          );
+        },
+        { maxWait: 5_000, timeout: 10_000 },
+      );
+    } catch (error) {
+      const logFailure = () =>
+        logger.error("outbox.dispatch.failed", {
+          ...(attempt
+            ? {
+                outbox_id: attempt.message.id,
+                job_id: attempt.message.id,
+                job_type: attempt.message.eventType,
+                job_version: attempt.message.payloadVersion,
+                ...(attempt.queueMessageId
+                  ? { queue_message_id: attempt.queueMessageId }
+                  : {}),
+              }
+            : {}),
+          error_type: safeErrorType(error),
+        });
+      const logFailureWithContext = () =>
+        attempt
+          ? executionContext.run(
+              {
+                correlationId: attempt.message.correlationId,
+                jobId: attempt.message.id,
+              },
+              logFailure,
+            )
+          : logFailure();
 
-                    return true;
-                  } catch (error) {
-                    logger.error("outbox.dispatch.failed", {
-                      outbox_id: message.id,
-                      job_id: job.id,
-                      job_type: job.type,
-                      error_type: safeErrorType(error),
-                    });
-                    throw error;
-                  }
-                },
-              }),
-            ),
-        );
-      },
-      { maxWait: 5_000, timeout: 10_000 },
-    );
+      await telemetry.runWithPropagationContext(
+        attempt?.dispatchContext ?? attempt?.originatingContext,
+        logFailureWithContext,
+      );
+      throw error;
+    }
 
-    if (!published) {
+    if (result === null) {
       break;
     }
 
+    const logCompletion = () =>
+      executionContext.run(
+        {
+          correlationId: result.message.correlationId,
+          jobId: result.message.id,
+        },
+        () =>
+          logger.info("outbox.dispatch.completed", {
+            outbox_id: result.message.id,
+            job_id: result.message.id,
+            job_type: result.message.eventType,
+            job_version: result.message.payloadVersion,
+            queue_message_id: result.queueMessageId,
+          }),
+      );
+    await telemetry.runWithPropagationContext(
+      result.dispatchContext,
+      logCompletion,
+    );
     dispatched += 1;
   }
 

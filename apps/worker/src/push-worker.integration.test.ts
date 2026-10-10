@@ -111,6 +111,7 @@ test(
           eventType: FOUNDATION_PUSH_SEND_JOB_TYPE,
           payloadVersion: 1,
           payload: { registrationId: registration.id },
+          correlationId: randomUUID(),
         },
       });
       outboxId = outbox.id;

@@ -1,11 +1,21 @@
 import assert from "node:assert/strict";
 import { Writable } from "node:stream";
+import { trace, type Span } from "@opentelemetry/api";
+import type {
+  ExecutionContextProvider,
+  StructuredLogger,
+  TelemetryProvider,
+} from "@unimate/observability";
 import type { AuthMeResponse } from "@unimate/contracts";
 import { test } from "node:test";
 import { createApiApplication } from "../../app.js";
 import { parseApiConfig } from "../../config/environment.js";
 import type { AuthMeService } from "../../modules/auth/auth-me.service.js";
 import { startNodeObservabilityRuntime } from "@unimate/observability/node";
+import {
+  finalizeHttpRequest,
+  type HttpRequestState,
+} from "./http-observability.js";
 
 test(
   "isolates request context and records safe logs/spans for success and failure",
@@ -191,6 +201,202 @@ test(
   },
 );
 
+test(
+  "HTTP response, abort, and timeout finalization end spans exactly once",
+  { timeout: 5_000 },
+  async () => {
+    const context = {
+      requestId: "0199f4ad-6789-7abc-8def-0123456789ab",
+      correlationId: "0199f4ad-6789-7abc-8def-0123456789ab",
+    };
+    const logEvents: string[] = [];
+    const logger: StructuredLogger = {
+      debug() {},
+      info(event) {
+        logEvents.push(event);
+      },
+      warn(event) {
+        logEvents.push(event);
+      },
+      error(event) {
+        logEvents.push(event);
+      },
+    };
+    const executionContext: ExecutionContextProvider = {
+      current: () => context,
+      run(_context, operation) {
+        return operation();
+      },
+    };
+    async function finalize(reason: "response" | "aborted" | "timeout") {
+      let finishCount = 0;
+      let ended = false;
+      let state: HttpRequestState | undefined;
+      let releaseOperation!: () => void;
+      const operationFinished = new Promise<void>((resolve) => {
+        releaseOperation = resolve;
+      });
+      const telemetry: TelemetryProvider = {
+        runInSpan({ operation }) {
+          const span = new Proxy(createTestSpan(), {
+            get(target, property) {
+              if (property === "end") {
+                return () => {
+                  ended = true;
+                  target.end();
+                };
+              }
+              const value = Reflect.get(target, property, target);
+              return typeof value === "function" ? value.bind(target) : value;
+            },
+          });
+          return Promise.resolve(operation(span)).finally(() => span.end());
+        },
+        runWithActiveSpan(_span, operation) {
+          return operation();
+        },
+        capturePropagationContext() {
+          return undefined;
+        },
+        async runWithPropagationContext(_context, operation) {
+          return operation();
+        },
+      };
+      const dependencies = { logger, executionContext, telemetry };
+      const traceRun = telemetry.runInSpan({
+        name: "http.server",
+        operation(span) {
+          state = {
+            context,
+            startedAt: performance.now(),
+            method: "GET",
+            route: "/v1/auth/me",
+            span,
+            finalized: false,
+            finished: false,
+            reported: false,
+            exceptionRecorded: false,
+            advanced: true,
+            finish() {
+              finishCount += 1;
+              releaseOperation();
+            },
+          };
+          return operationFinished;
+        },
+      });
+      assert.ok(state);
+
+      const finalized = await finalizeHttpRequest(
+        state,
+        reason,
+        dependencies,
+        reason === "response"
+          ? () => logger.info("http.request.completed")
+          : undefined,
+      );
+      await traceRun;
+
+      assert.equal(finalized, true);
+      assert.equal(finishCount, 1);
+      assert.equal(ended, true);
+      assert.equal(
+        await finalizeHttpRequest(state, "aborted", dependencies),
+        false,
+      );
+      assert.equal(finishCount, 1);
+    }
+
+    await finalize("response");
+    await finalize("aborted");
+    await finalize("timeout");
+
+    assert.deepEqual(logEvents, [
+      "http.request.completed",
+      "http.request.timed_out",
+    ]);
+    assert.equal(logEvents.includes("error.reporting.failed"), false);
+  },
+);
+
+test("a disconnect releases a response finalizer waiting on application work", async () => {
+  const context = {
+    requestId: "0199f4ad-6789-7abc-8def-0123456789ab",
+    correlationId: "0199f4ad-6789-7abc-8def-0123456789ab",
+  };
+  const logger: StructuredLogger = {
+    debug() {},
+    info() {},
+    warn() {},
+    error() {},
+  };
+  const executionContext: ExecutionContextProvider = {
+    current: () => context,
+    run(_context, operation) {
+      return operation();
+    },
+  };
+  const telemetry: TelemetryProvider = {
+    async runInSpan({ operation }) {
+      return operation(createTestSpan());
+    },
+    runWithActiveSpan(_span, operation) {
+      return operation();
+    },
+    capturePropagationContext() {
+      return undefined;
+    },
+    async runWithPropagationContext(_context, operation) {
+      return operation();
+    },
+  };
+  const dependencies = { logger, executionContext, telemetry };
+  let releaseCompletion!: () => void;
+  const completionGate = new Promise<void>((resolve) => {
+    releaseCompletion = resolve;
+  });
+  let releaseSpan!: () => void;
+  const spanGate = new Promise<void>((resolve) => {
+    releaseSpan = resolve;
+  });
+  let finishCount = 0;
+  let state!: HttpRequestState;
+  const responseFinalization = finalizeHttpRequest(
+    (state = {
+      context,
+      startedAt: performance.now(),
+      method: "GET",
+      route: "/v1/auth/me",
+      finalized: false,
+      finished: false,
+      reported: false,
+      exceptionRecorded: false,
+      advanced: true,
+      finish() {
+        finishCount += 1;
+        releaseSpan();
+      },
+    }),
+    "response",
+    dependencies,
+    () => completionGate,
+  );
+
+  await Promise.resolve();
+  assert.equal(state.finalized, true);
+  assert.equal(
+    await finalizeHttpRequest(state, "aborted", dependencies),
+    false,
+  );
+  await spanGate;
+  assert.equal(state.finished, true);
+  assert.equal(finishCount, 1);
+
+  releaseCompletion();
+  await responseFinalization;
+  assert.equal(finishCount, 1);
+});
+
 interface LogRecord {
   readonly event?: string;
   readonly request_id?: string;
@@ -202,4 +408,8 @@ interface LogRecord {
   readonly status?: number;
   readonly duration_ms?: number;
   readonly error_type?: string;
+}
+
+function createTestSpan(): Span {
+  return trace.getTracer("http-finalization-test").startSpan("test");
 }

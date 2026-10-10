@@ -1,9 +1,14 @@
-import type { JobQueue, ReceivedQueueMessage } from "@unimate/queue";
-import type {
-  ErrorReporter,
-  ExecutionContextProvider,
-  StructuredLogger,
-  TelemetryProvider,
+import {
+  JobQueueError,
+  type JobQueue,
+  type ReceivedQueueMessage,
+} from "@unimate/queue";
+import {
+  safeErrorType,
+  type ErrorReporter,
+  type ExecutionContextProvider,
+  type StructuredLogger,
+  type TelemetryProvider,
 } from "@unimate/observability";
 import { setTimeout as delay } from "node:timers/promises";
 import type { WorkerConfig } from "./config.js";
@@ -24,6 +29,31 @@ export interface WorkerDependencies {
 export interface WorkerCycleFailure {
   readonly stage: "outbox-dispatch" | "queue-consume";
   readonly cause: unknown;
+}
+
+export function logWorkerCycleFailure(
+  { stage, cause }: WorkerCycleFailure,
+  logger: StructuredLogger,
+): void {
+  if (stage === "outbox-dispatch") {
+    logger.error("outbox.dispatch.failed", {
+      error_type: safeErrorType(cause),
+    });
+  } else if (cause instanceof DeadLetterFailureError) {
+    logger.error("job.dead-letter.failed", {
+      error_type: cause.name,
+    });
+  } else if (cause instanceof JobQueueError) {
+    logger.error("queue.consume.failed", {
+      operation: cause.operation,
+      failure_kind: cause.kind,
+    });
+  } else {
+    logger.error("worker.cycle.failed", {
+      stage,
+      error_type: safeErrorType(cause),
+    });
+  }
 }
 
 export interface WorkerCycleResult {

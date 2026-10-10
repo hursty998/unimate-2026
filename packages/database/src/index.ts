@@ -47,11 +47,16 @@ export function createDatabaseClient({
         const durationMilliseconds = performance.now() - startedAt;
 
         if (durationMilliseconds >= slowQueryThresholdMilliseconds) {
-          onSlowQuery({
-            ...(model ? { model } : {}),
-            operation,
-            durationMilliseconds: Math.round(durationMilliseconds * 100) / 100,
-          });
+          try {
+            onSlowQuery({
+              ...(model ? { model } : {}),
+              operation,
+              durationMilliseconds:
+                Math.round(durationMilliseconds * 100) / 100,
+            });
+          } catch {
+            // Observability callbacks must not change database operation results.
+          }
         }
 
         return result;
