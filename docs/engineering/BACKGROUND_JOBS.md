@@ -123,9 +123,11 @@ handles SIGINT/SIGTERM, and closes its database and queue clients.
 Worker spans cover outbox dispatch and job processing. Attributes are limited
 to identifiers and delivery metadata such as `outbox.id`, `job.id`, `job.type`,
 `job.version`, `queue.message_id`, and `queue.delivery_count`. Payloads,
-credentials, tokens, and user content are not recorded. A production exporter,
-structured logs, correlation IDs, and complete API-to-worker traceability
-remain Phase 11 work.
+credentials, tokens, and user content are not recorded. Dispatch restores the
+Outbox W3C trace context, and the optional strict envelope observability
+metadata preserves correlation and trace lineage through worker processing.
+The operational event schema and privacy policy are documented in
+[`OBSERVABILITY.md`](./OBSERVABILITY.md).
 
 ## Local verification
 

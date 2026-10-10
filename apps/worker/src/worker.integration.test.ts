@@ -16,11 +16,16 @@ import {
 } from "@unimate/queue";
 import { withSupabaseTestQueue } from "@unimate/queue/supabase-test-support";
 import { trace } from "@opentelemetry/api";
-import type { TelemetryProvider } from "@unimate/observability";
-import { processQueueMessage } from "./consumer.js";
+import type {
+  TelemetryProvider,
+  TracePropagationContext,
+} from "@unimate/observability";
+import { z } from "zod";
+import { processQueueMessage as processQueueMessageImpl } from "./consumer.js";
 import { createFoundationTaskHandler } from "./foundation-task-handler.js";
-import { dispatchOutboxBatch } from "./outbox-dispatcher.js";
+import { dispatchOutboxBatch as dispatchOutboxBatchImpl } from "./outbox-dispatcher.js";
 import { createJobHandlerRegistry, registerJobHandler } from "./registry.js";
+import { createTestObservability } from "./test-support/observability.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
 const queueDatabaseUrl = process.env["SUPABASE_TEST_DATABASE_URL"];
@@ -32,6 +37,11 @@ if (databaseUrl === undefined || queueDatabaseUrl === undefined) {
 }
 
 const foundationJobType = FOUNDATION_TASK_COMPLETION_JOB_TYPE;
+const testObservability = createTestObservability();
+type TestObservability = Pick<
+  ReturnType<typeof createTestObservability>,
+  "executionContext" | "logger" | "errorReporter"
+>;
 const telemetry: TelemetryProvider = {
   runInSpan({ name, attributes, operation }) {
     const span = trace
@@ -41,7 +51,34 @@ const telemetry: TelemetryProvider = {
       .then(() => operation(span))
       .finally(() => span.end());
   },
+  capturePropagationContext(): TracePropagationContext | undefined {
+    return undefined;
+  },
+  async runWithPropagationContext(_context, operation) {
+    return await operation();
+  },
+  runWithActiveSpan(_span, operation) {
+    return operation();
+  },
 };
+
+function processQueueMessage(
+  input: Omit<
+    Parameters<typeof processQueueMessageImpl>[0],
+    keyof TestObservability
+  >,
+) {
+  return processQueueMessageImpl({ ...input, ...testObservability });
+}
+
+function dispatchOutboxBatch(
+  input: Omit<
+    Parameters<typeof dispatchOutboxBatchImpl>[0],
+    keyof TestObservability
+  >,
+) {
+  return dispatchOutboxBatchImpl({ ...input, ...testObservability });
+}
 
 function createDeferredQueue() {
   let markEnqueueStarted: () => void = () => {};
@@ -138,11 +175,20 @@ function spawnWorkerOnce(config: {
 
   assert.equal(result.error, undefined, result.stderr);
   assert.equal(result.status, config.expectFailure ? 1 : 0, result.stderr);
-  assert.match(result.stdout, /Worker cycle complete:/);
+  const records = result.stdout
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+  const cycle = records.find(
+    (record) => record["event"] === "worker.cycle.completed",
+  );
+  assert.ok(cycle);
   if (config.expectFailure) {
-    assert.match(result.stdout, /received=1/);
-    assert.match(result.stdout, /deadLettered=1/);
-    assert.match(result.stderr, /Worker outbox dispatch failed/);
+    assert.equal(cycle["received"], 1);
+    assert.equal(cycle["dead_lettered"], 1);
+    assert.ok(
+      records.some((record) => record["event"] === "outbox.dispatch.failed"),
+    );
   }
 }
 
@@ -310,6 +356,7 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
           type: foundationJobType,
           version: 1,
           payload: { taskId: task.id },
+          observability: { correlationId: outbox.correlationId },
         });
 
         spawnWorkerOnce({ queueName, queueDatabaseUrl });
@@ -379,7 +426,9 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
           version: 1,
           payload: { taskId: task.id },
         });
-        const retryMessageId = await queue.enqueue(retryEnvelope);
+        const retryMessageId = await queue.enqueue(
+          z.json().parse(retryEnvelope),
+        );
         let handlerAttempts = 0;
         const injectedRetryHandler = registerJobHandler({
           type: foundationJobType,
@@ -431,7 +480,9 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
           version: 1,
           payload: { taskId: task.id },
         });
-        const exhaustedId = await queue.enqueue(exhaustedEnvelope);
+        const exhaustedId = await queue.enqueue(
+          z.json().parse(exhaustedEnvelope),
+        );
         const exhaustedDelivery = (
           await queue.receive({ visibilityTimeoutSeconds: 0, limit: 1 })
         )[0];
@@ -466,7 +517,9 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
           version: 1,
           payload: { taskId: randomUUID() },
         });
-        const permanentId = await queue.enqueue(permanentEnvelope);
+        const permanentId = await queue.enqueue(
+          z.json().parse(permanentEnvelope),
+        );
         const permanentDelivery = (
           await queue.receive({ visibilityTimeoutSeconds: 0, limit: 1 })
         )[0];
@@ -518,7 +571,9 @@ test("proves atomic outbox dispatch, concurrency, local consumption, and at-leas
           version: 1,
           payload: { taskId: ackFailureTask.id },
         });
-        const ackFailureId = await queue.enqueue(ackFailureEnvelope);
+        const ackFailureId = await queue.enqueue(
+          z.json().parse(ackFailureEnvelope),
+        );
         const ackFailureDelivery = (
           await queue.receive({ visibilityTimeoutSeconds: 0, limit: 1 })
         )[0];

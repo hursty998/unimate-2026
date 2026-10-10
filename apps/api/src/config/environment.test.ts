@@ -41,6 +41,12 @@ test("API configuration supplies the documented local defaults", () => {
       supabaseJwtAudience: "authenticated",
       supabaseSecretKey: "sb_secret_test-only",
       supabaseStorageBucket: "foundation-storage-proof",
+      observability: {
+        environment: "development",
+        logLevel: "info",
+        traceExporter: "none",
+        slowQueryThresholdMilliseconds: 250,
+      },
     },
   );
 });

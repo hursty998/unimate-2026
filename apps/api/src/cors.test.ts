@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { parseNodeObservabilityConfig } from "@unimate/observability/node";
 import { createApiApplication } from "./app.js";
 
 test("CORS allows the API method set without widening configured origins", async () => {
@@ -14,6 +15,7 @@ test("CORS allows the API method set without widening configured origins", async
     supabaseJwtAudience: "authenticated",
     supabaseSecretKey: "sb_secret_test-only",
     supabaseStorageBucket: "foundation-storage-proof",
+    observability: parseNodeObservabilityConfig({ NODE_ENV: "production" }),
   });
 
   try {
@@ -30,6 +32,10 @@ test("CORS allows the API method set without widening configured origins", async
     assert.equal(
       allowedPreflight.headers["access-control-allow-origin"],
       allowedOrigin,
+    );
+    assert.equal(
+      allowedPreflight.headers["access-control-expose-headers"],
+      "x-request-id, x-correlation-id",
     );
     assert.deepEqual(
       allowedPreflight.headers["access-control-allow-methods"]

@@ -2,6 +2,7 @@ import { systemHealthContract } from "./system/health.js";
 import { authMeContract } from "./auth/me.js";
 import { foundationPushContracts, pushRegistrationContracts } from "./push.js";
 import { storageProofContracts } from "./storage-proof.js";
+import { foundationObservabilityProofContract } from "./foundation-observability.js";
 
 export {
   systemHealthResponseSchema,
@@ -29,6 +30,11 @@ export {
   pushRegistrationUnregisterResponseSchema,
   type PushRegistrationResponse,
 } from "./push.js";
+export {
+  foundationObservabilityProofContract,
+  foundationObservabilityProofInputSchema,
+  foundationObservabilityProofResponseSchema,
+} from "./foundation-observability.js";
 
 export const contract = {
   system: {
@@ -40,4 +46,7 @@ export const contract = {
   storageProof: storageProofContracts,
   pushRegistration: pushRegistrationContracts,
   foundationPush: foundationPushContracts,
+  foundationObservability: {
+    proof: foundationObservabilityProofContract,
+  },
 };

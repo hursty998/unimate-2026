@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { AuthMeResponse } from "@unimate/contracts";
+import { parseNodeObservabilityConfig } from "@unimate/observability/node";
 import { createApiApplication } from "../../app.js";
 import type { ApiConfig } from "../../config/environment.js";
 import type { AuthMeService } from "./auth-me.service.js";
@@ -15,6 +16,7 @@ const config: ApiConfig = {
   supabaseJwtAudience: "authenticated",
   supabaseSecretKey: "sb_secret_test-only",
   supabaseStorageBucket: "foundation-storage-proof",
+  observability: parseNodeObservabilityConfig({ NODE_ENV: "test" }),
 };
 
 const expectedUser: AuthMeResponse = {

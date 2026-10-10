@@ -1,4 +1,4 @@
-import { AuthProvider, Prisma } from "../src/generated/prisma/client.js";
+import { AuthProvider } from "../src/generated/prisma/client.js";
 import { createDatabaseClient } from "../src/index.js";
 
 const connectionString = process.env["DATABASE_URL"];
@@ -8,13 +8,14 @@ if (!connectionString) {
 }
 
 const prisma = createDatabaseClient({ connectionString });
+type SeedTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 const universitySlug = "unimate-development-university";
 const affiliatedSubject = "local:unimate:development-affiliated-user";
 const externalSubject = "local:unimate:development-external-user";
 
 async function upsertIdentity(
-  transaction: Prisma.TransactionClient,
+  transaction: SeedTransaction,
   providerSubject: string,
 ) {
   return transaction.authIdentity.upsert({

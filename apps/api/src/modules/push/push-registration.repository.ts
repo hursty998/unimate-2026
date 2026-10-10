@@ -4,6 +4,7 @@ import {
   foundationPushSendPayloadSchema,
 } from "@unimate/jobs";
 import { DatabaseClientService } from "../../infrastructure/database/database.module.js";
+import { OutboxLineageService } from "../../infrastructure/observability/observability.module.js";
 import type { AuthenticatedPrincipal } from "../auth/authenticated-principal.js";
 
 export interface PushRegistrationRepository {
@@ -30,7 +31,10 @@ function isUniqueConstraintViolation(error: unknown): boolean {
 
 @Injectable()
 export class PrismaPushRegistrationRepository implements PushRegistrationRepository {
-  constructor(private readonly database: DatabaseClientService) {}
+  constructor(
+    private readonly database: DatabaseClientService,
+    private readonly outboxLineage: OutboxLineageService,
+  ) {}
 
   async resolveUserId(
     principal: AuthenticatedPrincipal,
@@ -136,6 +140,7 @@ export class PrismaPushRegistrationRepository implements PushRegistrationReposit
           eventType: FOUNDATION_PUSH_SEND_JOB_TYPE,
           payloadVersion: 1,
           payload,
+          ...this.outboxLineage.capture(),
         },
         select: { id: true },
       });

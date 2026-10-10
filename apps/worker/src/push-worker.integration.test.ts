@@ -16,15 +16,19 @@ import {
 } from "@unimate/notifications";
 import { withSupabaseTestQueue } from "@unimate/queue/supabase-test-support";
 import { trace } from "@opentelemetry/api";
-import type { TelemetryProvider } from "@unimate/observability";
-import { processQueueMessage } from "./consumer.js";
+import type {
+  TelemetryProvider,
+  TracePropagationContext,
+} from "@unimate/observability";
+import { processQueueMessage as processQueueMessageImpl } from "./consumer.js";
 import {
   createFoundationPushReceiptCheckHandler,
   createFoundationPushSendHandler,
 } from "./foundation-push-handlers.js";
-import { dispatchOutboxBatch } from "./outbox-dispatcher.js";
+import { dispatchOutboxBatch as dispatchOutboxBatchImpl } from "./outbox-dispatcher.js";
 import { createJobHandlerRegistry } from "./registry.js";
 import { PrismaPushDeliveryRepository } from "./push-delivery-repository.js";
+import { createTestObservability } from "./test-support/observability.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
 const queueDatabaseUrl = process.env["SUPABASE_TEST_DATABASE_URL"];
@@ -35,6 +39,11 @@ if (databaseUrl === undefined || queueDatabaseUrl === undefined) {
   );
 }
 
+const testObservability = createTestObservability();
+type TestObservability = Pick<
+  ReturnType<typeof createTestObservability>,
+  "executionContext" | "logger" | "errorReporter"
+>;
 const telemetry: TelemetryProvider = {
   runInSpan({ name, attributes, operation }) {
     const span = trace
@@ -44,7 +53,34 @@ const telemetry: TelemetryProvider = {
       .then(() => operation(span))
       .finally(() => span.end());
   },
+  capturePropagationContext(): TracePropagationContext | undefined {
+    return undefined;
+  },
+  async runWithPropagationContext(_context, operation) {
+    return await operation();
+  },
+  runWithActiveSpan(_span, operation) {
+    return operation();
+  },
 };
+
+function processQueueMessage(
+  input: Omit<
+    Parameters<typeof processQueueMessageImpl>[0],
+    keyof TestObservability
+  >,
+) {
+  return processQueueMessageImpl({ ...input, ...testObservability });
+}
+
+function dispatchOutboxBatch(
+  input: Omit<
+    Parameters<typeof dispatchOutboxBatchImpl>[0],
+    keyof TestObservability
+  >,
+) {
+  return dispatchOutboxBatchImpl({ ...input, ...testObservability });
+}
 
 test(
   "dispatches a push proof through Outbox, local PGMQ, and provider-neutral worker handlers",

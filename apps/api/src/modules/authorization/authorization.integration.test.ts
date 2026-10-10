@@ -34,7 +34,9 @@ function isForeignKeyConstraintViolation(error: unknown): boolean {
 }
 
 test("AuthorizationService resolves exact grants and scoped denials in PostgreSQL", async () => {
-  const database = new DatabaseClientService(databaseUrl);
+  const database = new DatabaseClientService({
+    connectionString: databaseUrl,
+  });
   const service = new AuthorizationService(database);
   const suffix = randomUUID();
   const userIds: string[] = [];
@@ -647,7 +649,9 @@ test("AuthorizationService resolves exact grants and scoped denials in PostgreSQ
 });
 
 test("feature-local resource policy can deny an actor with a coarse capability", async () => {
-  const database = new DatabaseClientService(databaseUrl);
+  const database = new DatabaseClientService({
+    connectionString: databaseUrl,
+  });
   const authorization = new AuthorizationService(database);
   const resourceService = new TestOnlyOwnedDraftResourceService(authorization);
   const suffix = randomUUID();

@@ -107,6 +107,10 @@ test("mobile cannot import server queue or storage adapters", async () => {
     'import type { JobQueue } from "@unimate/queue";',
     "apps/mobile/src/provider-boundary.fixture.ts",
   );
+  const observability = await lintText(
+    'import { startNodeObservabilityRuntime } from "@unimate/observability/node";',
+    "apps/mobile/src/provider-boundary.fixture.ts",
+  );
   const storage = await lintText(
     'import { SupabaseObjectStorage } from "@unimate/storage/supabase";',
     "apps/mobile/src/provider-boundary.fixture.ts",
@@ -114,6 +118,11 @@ test("mobile cannot import server queue or storage adapters", async () => {
 
   assert.ok(
     queue.messages.some(
+      (message) => message.ruleId === "no-restricted-imports",
+    ),
+  );
+  assert.ok(
+    observability.messages.some(
       (message) => message.ruleId === "no-restricted-imports",
     ),
   );

@@ -37,7 +37,14 @@ Prisma CLI, Client, and PostgreSQL adapter are exact-pinned to stable Prisma ORM
   FK, opaque provider submission handle, transport status, and receipt-check
   timestamps. It does not store notification content or provider responses.
 - The existing `OutboxMessage` is dispatched by the worker. Its `publishedAt` records queue acceptance, not job completion; see [`BACKGROUND_JOBS.md`](./BACKGROUND_JOBS.md).
+- `OutboxMessage.correlationId` is required and its nullable `traceparent`/
+  `tracestate` columns preserve W3C lineage for asynchronous jobs; see
+  [`OBSERVABILITY.md`](./OBSERVABILITY.md).
 - Positive outbox payload versions are enforced with a minimal migration check constraint because Prisma 7's schema language cannot represent it.
+
+Prisma 7.10 query extensions expose slow semantic operation durations only.
+SQL, parameters, and Prisma arguments are not logged; threshold and event
+details are defined in [`OBSERVABILITY.md`](./OBSERVABILITY.md).
 
 ## Migrations, seeds, and reset
 

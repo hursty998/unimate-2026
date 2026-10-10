@@ -81,6 +81,11 @@ const fullSteps = [
     command: "pnpm",
     args: ["worker:test:prepared"],
   },
+  {
+    name: "observability integration",
+    command: "pnpm",
+    args: ["observability:test:prepared"],
+  },
 ];
 
 const changedSteps = [

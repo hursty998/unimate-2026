@@ -1,5 +1,11 @@
 import { JobQueueError } from "@unimate/queue";
+import { safeErrorType } from "@unimate/observability";
 import { pathToFileURL } from "node:url";
+import {
+  createNodeObservabilityServices,
+  startNodeObservabilityRuntime,
+  type NodeObservabilityRuntime,
+} from "@unimate/observability/node";
 import { parseWorkerConfig } from "./config.js";
 import { DeadLetterFailureError } from "./consumer.js";
 import { createFoundationTaskHandler } from "./foundation-task-handler.js";
@@ -15,6 +21,7 @@ import {
   runWorkerContinuously,
   runWorkerCycle,
   type WorkerCycleFailure,
+  type WorkerCycleResult,
 } from "./runtime.js";
 
 function parseArguments(arguments_: readonly string[]): { once: boolean } {
@@ -29,43 +36,76 @@ function parseArguments(arguments_: readonly string[]): { once: boolean } {
   throw new TypeError("Worker accepts only the optional --once argument.");
 }
 
-function reportCycleFailure({ stage, cause }: WorkerCycleFailure): void {
+function reportCycleFailure(
+  { stage, cause }: WorkerCycleFailure,
+  runtime: NodeObservabilityRuntime,
+): void {
   if (stage === "outbox-dispatch") {
-    const failureKind =
-      cause instanceof Error ? cause.name : "unknown worker error";
-    console.error(
-      `Worker outbox dispatch failed (${failureKind}); queued work will still be consumed.`,
-    );
+    runtime.logger.error("outbox.dispatch.failed", {
+      error_type: safeErrorType(cause),
+    });
+  } else if (cause instanceof DeadLetterFailureError) {
+    runtime.logger.error("job.dead-letter.failed", {
+      error_type: cause.name,
+    });
+  } else if (cause instanceof JobQueueError) {
+    runtime.logger.error("queue.consume.failed", {
+      operation: cause.operation,
+      failure_kind: cause.kind,
+    });
+  } else {
+    runtime.logger.error("worker.cycle.failed", {
+      stage,
+      error_type: safeErrorType(cause),
+    });
+  }
+
+  if (
+    !(cause instanceof JobQueueError) &&
+    !(cause instanceof DeadLetterFailureError)
+  ) {
+    void Promise.resolve(
+      runtime.errorReporter.captureException(cause, {
+        operation: `worker.cycle.${stage}`,
+      }),
+    ).catch((reportingError: unknown) => {
+      runtime.logger.error("error.reporting.failed", {
+        error_type: safeErrorType(reportingError),
+        operation: `worker.cycle.${stage}`,
+      });
+    });
+  }
+}
+
+function logCycleSummary(
+  result: WorkerCycleResult,
+  runtime: NodeObservabilityRuntime,
+): void {
+  if (result.dispatched === 0 && result.received === 0) {
     return;
   }
 
-  if (cause instanceof DeadLetterFailureError) {
-    console.error(
-      "Worker could not dead-letter a message; it remains active for recovery.",
-    );
-    return;
-  }
-
-  if (cause instanceof JobQueueError) {
-    console.error(`Worker queue ${cause.operation} failed (${cause.kind}).`);
-    return;
-  }
-
-  const failureKind =
-    cause instanceof Error ? cause.name : "unknown worker error";
-  console.error(
-    `Worker cycle failed (${failureKind}); retrying after the poll interval.`,
-  );
+  runtime.logger.info("worker.cycle.completed", {
+    dispatched: result.dispatched,
+    received: result.received,
+    acknowledged: result.acknowledged,
+    retrying: result.retrying,
+    dead_lettered: result.deadLettered,
+    dead_letter_failures: result.deadLetterFailures,
+  });
 }
 
 async function closeResources(
-  database: { $disconnect(): Promise<void> },
-  queue: { close(): Promise<void> },
+  database: { $disconnect(): Promise<void> } | undefined,
+  queue: { close(): Promise<void> } | undefined,
+  observability: NodeObservabilityRuntime,
 ): Promise<void> {
-  const results = await Promise.allSettled([
-    queue.close(),
-    database.$disconnect(),
-  ]);
+  const operations = [
+    ...(queue ? [queue.close()] : []),
+    ...(database ? [database.$disconnect()] : []),
+    observability.shutdown(),
+  ];
+  const results = await Promise.allSettled(operations);
   const failures = results.flatMap((result) =>
     result.status === "rejected" ? [result.reason] : [],
   );
@@ -83,30 +123,13 @@ export async function main(
 ): Promise<void> {
   const { once } = parseArguments(arguments_);
   const config = parseWorkerConfig(process.env);
-  const { database, queue, telemetry, pushProvider } =
-    createWorkerProviders(config);
-  const pushDeliveryRepository = new PrismaPushDeliveryRepository(database);
-  const registry = createJobHandlerRegistry([
-    createFoundationTaskHandler(database),
-    createFoundationPushSendHandler({
-      repository: pushDeliveryRepository,
-      queue,
-      pushProvider,
-      receiptCheckDelaySeconds: config.foundationPushReceiptCheckDelaySeconds,
-    }),
-    createFoundationPushReceiptCheckHandler({
-      repository: pushDeliveryRepository,
-      pushProvider,
-    }),
-  ]);
-  const dependencies = {
-    dispatchOutbox: (limit: number) =>
-      dispatchOutboxBatch({ database, queue, telemetry, limit }),
-    queue,
-    telemetry,
-    registry,
-    config,
-  };
+  const observability = startNodeObservabilityRuntime({
+    serviceName: "unimate-worker",
+    config: config.observability,
+  });
+  let database:
+    ReturnType<typeof createWorkerProviders>["database"] | undefined;
+  let queue: ReturnType<typeof createWorkerProviders>["queue"] | undefined;
   const abortController = new AbortController();
   const onSignal = () => abortController.abort();
 
@@ -114,13 +137,49 @@ export async function main(
   process.once("SIGTERM", onSignal);
 
   try {
+    const providers = createWorkerProviders(config, observability);
+    database = providers.database;
+    queue = providers.queue;
+    const pushDeliveryRepository = new PrismaPushDeliveryRepository(database);
+    const registry = createJobHandlerRegistry([
+      createFoundationTaskHandler(database),
+      createFoundationPushSendHandler({
+        repository: pushDeliveryRepository,
+        queue,
+        pushProvider: providers.pushProvider,
+        receiptCheckDelaySeconds: config.foundationPushReceiptCheckDelaySeconds,
+      }),
+      createFoundationPushReceiptCheckHandler({
+        repository: pushDeliveryRepository,
+        pushProvider: providers.pushProvider,
+      }),
+    ]);
+    const dependencies = {
+      dispatchOutbox: (limit: number) =>
+        dispatchOutboxBatch({
+          database: providers.database,
+          queue: providers.queue,
+          telemetry: providers.telemetry,
+          executionContext: providers.executionContext,
+          logger: providers.logger,
+          limit,
+        }),
+      queue: providers.queue,
+      telemetry: providers.telemetry,
+      executionContext: providers.executionContext,
+      logger: providers.logger,
+      errorReporter: providers.errorReporter,
+      registry,
+      config,
+    };
+
+    observability.logger.info("process.started", { once });
+
     if (once) {
       const result = await runWorkerCycle(dependencies);
-      console.info(
-        `Worker cycle complete: dispatched=${result.dispatched}, received=${result.received}, acknowledged=${result.acknowledged}, retrying=${result.retrying}, deadLettered=${result.deadLettered}, deadLetterFailures=${result.deadLetterFailures}.`,
-      );
+      logCycleSummary(result, observability);
       for (const failure of result.failures) {
-        reportCycleFailure(failure);
+        reportCycleFailure(failure, observability);
       }
       if (result.failures.length > 0 || result.deadLetterFailures > 0) {
         process.exitCode = 1;
@@ -131,13 +190,35 @@ export async function main(
     await runWorkerContinuously({
       config,
       signal: abortController.signal,
-      runCycle: () => runWorkerCycle(dependencies),
-      onCycleFailure: reportCycleFailure,
+      async runCycle() {
+        const result = await runWorkerCycle(dependencies);
+        logCycleSummary(result, observability);
+        return result;
+      },
+      onCycleFailure(failure) {
+        reportCycleFailure(failure, observability);
+      },
     });
+  } catch (error) {
+    observability.logger.error("process.failed", {
+      error_type: safeErrorType(error),
+    });
+    try {
+      await observability.errorReporter.captureException(error, {
+        operation: "worker.process",
+      });
+    } catch (reportingError) {
+      observability.logger.error("error.reporting.failed", {
+        error_type: safeErrorType(reportingError),
+        operation: "worker.process",
+      });
+    }
+    process.exitCode = 1;
   } finally {
     process.removeListener("SIGINT", onSignal);
     process.removeListener("SIGTERM", onSignal);
-    await closeResources(database, queue);
+    observability.logger.info("process.stopping");
+    await closeResources(database, queue, observability);
   }
 }
 
@@ -145,11 +226,38 @@ if (
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  main().catch((error: unknown) => {
-    if (error instanceof Error) {
-      console.error(`${error.name}: ${error.message}`);
-    } else {
-      console.error("Worker failed with an unknown error.");
+  main().catch(async (error: unknown) => {
+    const nodeEnvironment =
+      process.env["NODE_ENV"] === "test" ||
+      process.env["NODE_ENV"] === "production"
+        ? process.env["NODE_ENV"]
+        : "development";
+    const fallback = createNodeObservabilityServices({
+      serviceName: "unimate-worker",
+      config: {
+        environment: nodeEnvironment,
+        logLevel: "error",
+        traceExporter: "none",
+        slowQueryThresholdMilliseconds: 250,
+      },
+    });
+    fallback.logger.error("process.failed", {
+      error_type: safeErrorType(error),
+    });
+    try {
+      await fallback.errorReporter.captureException(error, {
+        operation: "worker.startup",
+      });
+    } catch (reportingError) {
+      fallback.logger.error("error.reporting.failed", {
+        error_type: safeErrorType(reportingError),
+        operation: "worker.startup",
+      });
+    }
+    try {
+      await fallback.logger.flush?.();
+    } catch {
+      process.exitCode = 1;
     }
 
     process.exitCode = 1;

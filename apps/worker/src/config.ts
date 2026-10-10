@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  parseNodeObservabilityConfig,
+  type NodeObservabilityConfig,
+} from "@unimate/observability/node";
 
 const postgresUrlSchema = z.string().superRefine((value, context) => {
   try {
@@ -69,6 +73,7 @@ export interface WorkerConfig {
   readonly maxDeliveryAttempts: number;
   readonly pollIntervalMilliseconds: number;
   readonly foundationPushReceiptCheckDelaySeconds: number;
+  readonly observability: NodeObservabilityConfig;
 }
 
 export class WorkerConfigurationError extends Error {
@@ -102,5 +107,6 @@ export function parseWorkerConfig(
     pollIntervalMilliseconds: result.data.WORKER_POLL_INTERVAL_MS,
     foundationPushReceiptCheckDelaySeconds:
       result.data.FOUNDATION_PUSH_RECEIPT_CHECK_DELAY_SECONDS,
+    observability: parseNodeObservabilityConfig(environment),
   };
 }

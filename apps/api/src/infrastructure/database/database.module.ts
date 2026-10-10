@@ -6,16 +6,19 @@ import {
   type DynamicModule,
   type OnModuleDestroy,
 } from "@nestjs/common";
-import { createDatabaseClient } from "@unimate/database";
+import {
+  createDatabaseClient,
+  type DatabaseClientOptions,
+} from "@unimate/database";
 
-const DATABASE_CONNECTION_STRING = Symbol("DATABASE_CONNECTION_STRING");
+const DATABASE_CLIENT_OPTIONS = Symbol("DATABASE_CLIENT_OPTIONS");
 
 @Injectable()
 export class DatabaseClientService implements OnModuleDestroy {
   readonly client: ReturnType<typeof createDatabaseClient>;
 
-  constructor(@Inject(DATABASE_CONNECTION_STRING) connectionString: string) {
-    this.client = createDatabaseClient({ connectionString });
+  constructor(@Inject(DATABASE_CLIENT_OPTIONS) options: DatabaseClientOptions) {
+    this.client = createDatabaseClient(options);
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -26,13 +29,13 @@ export class DatabaseClientService implements OnModuleDestroy {
 @Global()
 @Module({})
 export class DatabaseModule {
-  static forRoot(connectionString: string): DynamicModule {
+  static forRoot(options: DatabaseClientOptions): DynamicModule {
     return {
       module: DatabaseModule,
       providers: [
         {
-          provide: DATABASE_CONNECTION_STRING,
-          useValue: connectionString,
+          provide: DATABASE_CLIENT_OPTIONS,
+          useValue: options,
         },
         DatabaseClientService,
       ],

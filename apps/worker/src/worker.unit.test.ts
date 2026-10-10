@@ -1,16 +1,23 @@
 import assert from "node:assert/strict";
 import { trace, type Span } from "@opentelemetry/api";
 import { FOUNDATION_TASK_COMPLETION_JOB_TYPE } from "@unimate/jobs";
+import { PushProviderError } from "@unimate/notifications";
 import type {
   JobQueue,
   JsonValue,
   QueueMessageId,
   ReceivedQueueMessage,
 } from "@unimate/queue";
-import type { TelemetryProvider } from "@unimate/observability";
+import type {
+  TelemetryProvider,
+  TracePropagationContext,
+} from "@unimate/observability";
 import { z } from "zod";
 import { test } from "node:test";
-import { processQueueMessage, shouldDeadLetter } from "./consumer.js";
+import {
+  processQueueMessage as processQueueMessageImpl,
+  shouldDeadLetter,
+} from "./consumer.js";
 import { parseWorkerConfig } from "./config.js";
 import { PermanentJobError } from "./permanent-job-error.js";
 import {
@@ -18,7 +25,12 @@ import {
   registerJobHandler,
   type RegisteredJobHandler,
 } from "./registry.js";
-import { runWorkerContinuously, runWorkerCycle } from "./runtime.js";
+import {
+  runWorkerContinuously,
+  runWorkerCycle as runWorkerCycleImpl,
+  type WorkerDependencies,
+} from "./runtime.js";
+import { createTestObservability } from "./test-support/observability.js";
 
 const jobId = "0199f4ad-6789-7abc-8def-0123456789ab";
 const taskId = "0199f4ad-6789-7abc-8def-1123456789ab";
@@ -34,7 +46,10 @@ interface TelemetryRecord {
   readonly attributes: Map<string, boolean>;
 }
 
-function createTelemetry(records: TelemetryRecord[] = []): TelemetryProvider {
+function createTelemetry(
+  records: TelemetryRecord[] = [],
+  propagationContext?: TracePropagationContext,
+): TelemetryProvider {
   return {
     async runInSpan({ name, attributes, operation }) {
       const captured = new Map(
@@ -71,7 +86,39 @@ function createTelemetry(records: TelemetryRecord[] = []): TelemetryProvider {
         records.push({ name, attributes: captured });
       }
     },
+    capturePropagationContext() {
+      return propagationContext;
+    },
+    async runWithPropagationContext(_context, operation) {
+      return await operation();
+    },
+    runWithActiveSpan(_span, operation) {
+      return operation();
+    },
   };
+}
+
+const testObservability = createTestObservability();
+type TestObservability = Pick<
+  ReturnType<typeof createTestObservability>,
+  "executionContext" | "logger" | "errorReporter"
+>;
+
+function processQueueMessage(
+  input: Omit<
+    Parameters<typeof processQueueMessageImpl>[0],
+    keyof TestObservability
+  >,
+  observability: TestObservability = testObservability,
+) {
+  return processQueueMessageImpl({ ...input, ...observability });
+}
+
+function runWorkerCycle(
+  input: Omit<WorkerDependencies, keyof TestObservability>,
+  observability: TestObservability = testObservability,
+) {
+  return runWorkerCycleImpl({ ...input, ...observability });
 }
 
 function createQueue() {
@@ -171,6 +218,123 @@ test("validates payload before invoking a handler and acknowledges success", asy
   assert.equal(records[0]?.attributes.has("job.id"), true);
   assert.equal(records[0]?.attributes.has("queue.message_id"), true);
   assert.equal(records[0]?.attributes.has("job.payload"), false);
+});
+
+test("legacy envelopes remain processable and receive local correlation context", async () => {
+  const observability = createTestObservability();
+  const { queue } = createQueue();
+  const outcome = await processQueueMessage(
+    {
+      message: createMessage(validEnvelope),
+      queue,
+      telemetry: createTelemetry(),
+      registry: createRegistry(createTestHandler(async () => {})),
+      maximumAttempts: 5,
+    },
+    observability,
+  );
+  const completion = observability.logs.find(
+    (log) => log.event === "job.processing.completed",
+  );
+
+  assert.equal(outcome, "acknowledged");
+  assert.equal(completion?.fields?.["job_id"], jobId);
+  assert.equal(typeof completion?.fields?.["correlation_id"], "string");
+  assert.equal(completion?.fields?.["queue_message_id"], "1");
+  assert.equal(completion?.fields?.["delivery_count"], 1);
+});
+
+test("retry and dead-letter preserve the queued correlation and report once", async () => {
+  const observability = createTestObservability();
+  const { queue, state } = createQueue();
+  const correlationId = "0199f4ad-6789-7abc-8def-3123456789ab";
+  const envelope = {
+    ...validEnvelope,
+    observability: { correlationId },
+  } satisfies JsonValue;
+  const handler = createTestHandler(async () => {
+    throw new Error("synthetic retry failure");
+  });
+
+  assert.equal(
+    await processQueueMessage(
+      {
+        message: createMessage(envelope, 1),
+        queue,
+        telemetry: createTelemetry(),
+        registry: createRegistry(handler),
+        maximumAttempts: 2,
+      },
+      observability,
+    ),
+    "retrying",
+  );
+  assert.equal(observability.reports.length, 0);
+
+  assert.equal(
+    await processQueueMessage(
+      {
+        message: createMessage(envelope, 2),
+        queue,
+        telemetry: createTelemetry(),
+        registry: createRegistry(handler),
+        maximumAttempts: 2,
+      },
+      observability,
+    ),
+    "dead-lettered",
+  );
+
+  const failures = observability.logs.filter(
+    (log) => log.event === "job.processing.failed",
+  );
+  assert.deepEqual(
+    failures.map((log) => log.fields?.["correlation_id"]),
+    [correlationId, correlationId],
+  );
+  assert.deepEqual(
+    failures.map((log) => log.fields?.["job_id"]),
+    [jobId, jobId],
+  );
+  assert.deepEqual(
+    failures.map((log) => log.fields?.["delivery_count"]),
+    [1, 2],
+  );
+  assert.deepEqual(state.deadLetters, ["1"]);
+  assert.equal(observability.reports.length, 1);
+  assert.equal(observability.reports[0]?.context?.correlationId, correlationId);
+});
+
+test("exhausted expected provider failures do not become exception reports", async () => {
+  const observability = createTestObservability();
+  const { queue } = createQueue();
+  const handler = createTestHandler(async () => {
+    throw new PushProviderError(
+      "transient",
+      "synthetic provider retry outcome",
+    );
+  });
+
+  assert.equal(
+    await processQueueMessage(
+      {
+        message: createMessage(validEnvelope, 1),
+        queue,
+        telemetry: createTelemetry(),
+        registry: createRegistry(handler),
+        maximumAttempts: 1,
+      },
+      observability,
+    ),
+    "dead-lettered",
+  );
+  assert.equal(observability.reports.length, 0);
+  assert.equal(
+    JSON.stringify(observability.logs).includes(
+      "synthetic provider retry outcome",
+    ),
+    false,
+  );
 });
 
 test("handler registry rejects duplicates but accepts multiple versions", () => {

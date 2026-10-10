@@ -1,5 +1,10 @@
 import type { JobQueue, ReceivedQueueMessage } from "@unimate/queue";
-import type { TelemetryProvider } from "@unimate/observability";
+import type {
+  ErrorReporter,
+  ExecutionContextProvider,
+  StructuredLogger,
+  TelemetryProvider,
+} from "@unimate/observability";
 import { setTimeout as delay } from "node:timers/promises";
 import type { WorkerConfig } from "./config.js";
 import { DeadLetterFailureError, processQueueMessage } from "./consumer.js";
@@ -9,6 +14,9 @@ export interface WorkerDependencies {
   readonly dispatchOutbox: (limit: number) => Promise<number>;
   readonly queue: JobQueue;
   readonly telemetry: TelemetryProvider;
+  readonly executionContext: ExecutionContextProvider;
+  readonly logger: StructuredLogger;
+  readonly errorReporter: ErrorReporter;
   readonly registry: JobHandlerRegistry;
   readonly config: WorkerConfig;
 }
@@ -31,7 +39,15 @@ export interface WorkerCycleResult {
 export async function runWorkerCycle(
   dependencies: WorkerDependencies,
 ): Promise<WorkerCycleResult> {
-  const { config, queue, telemetry, registry } = dependencies;
+  const {
+    config,
+    queue,
+    telemetry,
+    executionContext,
+    logger,
+    errorReporter,
+    registry,
+  } = dependencies;
   const failures: WorkerCycleFailure[] = [];
   let dispatched = 0;
   try {
@@ -71,6 +87,9 @@ export async function runWorkerCycle(
         message,
         queue,
         telemetry,
+        executionContext,
+        logger,
+        errorReporter,
         registry,
         maximumAttempts: config.maxDeliveryAttempts,
       });

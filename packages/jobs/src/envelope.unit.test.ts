@@ -23,6 +23,40 @@ test("validates a strict, versioned job envelope and stable foundation payload",
   );
 });
 
+test("accepts optional strict observability metadata and legacy envelopes", () => {
+  const tracedEnvelope = {
+    ...validEnvelope,
+    observability: {
+      correlationId: "0199f4ad-6789-7abc-8def-2123456789ab",
+      traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      tracestate: "vendor=value",
+    },
+  };
+
+  assert.deepEqual(jobEnvelopeSchema.parse(tracedEnvelope), tracedEnvelope);
+  assert.deepEqual(jobEnvelopeSchema.parse(validEnvelope), validEnvelope);
+  assert.equal(
+    jobEnvelopeSchema.safeParse({
+      ...tracedEnvelope,
+      observability: {
+        ...tracedEnvelope.observability,
+        unexpected: true,
+      },
+    }).success,
+    false,
+  );
+  assert.equal(
+    jobEnvelopeSchema.safeParse({
+      ...tracedEnvelope,
+      observability: {
+        correlationId: tracedEnvelope.observability.correlationId,
+        traceparent: "not-w3c",
+      },
+    }).success,
+    false,
+  );
+});
+
 test("rejects malformed envelope fields and extra properties", () => {
   for (const input of [
     { ...validEnvelope, version: 0 },

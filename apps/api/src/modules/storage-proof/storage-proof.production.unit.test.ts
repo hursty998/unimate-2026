@@ -10,6 +10,7 @@ const productionConfig = parseApiConfig({
   API_HOST: "127.0.0.1",
   DATABASE_URL: "postgresql://localhost/postgres?schema=app",
   SUPABASE_URL: "https://auth.unimate.example",
+  OBSERVABILITY_LOG_LEVEL: "silent",
 });
 
 test("production API starts without proof storage configuration and does not register proof routes", async () => {

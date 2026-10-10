@@ -13,7 +13,9 @@ if (!databaseUrl) {
 }
 
 test("identity provisioning is atomic, repeatable, and race-safe in PostgreSQL", async () => {
-  const database = new DatabaseClientService(databaseUrl);
+  const database = new DatabaseClientService({
+    connectionString: databaseUrl,
+  });
   const service = new AuthMeService(database);
   const suffix = randomUUID();
   const providerSubjects = [

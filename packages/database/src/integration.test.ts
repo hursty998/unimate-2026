@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import "dotenv/config";
 import { test } from "node:test";
 import { AuthProvider, Prisma } from "./generated/prisma/client.js";
-import { createDatabaseClient } from "./index.js";
+import { createDatabaseClient, type DatabaseQueryTiming } from "./index.js";
 
 const connectionString = process.env["DATABASE_URL"];
 
@@ -269,6 +269,9 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     assert.deepEqual(storedMessage.payload, payload);
     assert.equal(storedMessage.payloadVersion, 1);
     assert.equal(storedMessage.publishedAt, null);
+    assert.match(storedMessage.correlationId, /^[0-9a-f-]{36}$/i);
+    assert.equal(storedMessage.traceparent, null);
+    assert.equal(storedMessage.tracestate, null);
     assert.ok(storedMessage.createdAt instanceof Date);
     const pushAttempt = await prisma.pushDeliveryAttempt.create({
       data: {
@@ -331,7 +334,16 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
       WHERE table_schema = 'app'
         AND (
           (table_name = 'users' AND column_name IN ('id', 'created_at'))
-          OR (table_name = 'outbox_messages' AND column_name IN ('id', 'payload'))
+          OR (
+            table_name = 'outbox_messages'
+            AND column_name IN (
+              'id',
+              'payload',
+              'correlation_id',
+              'traceparent',
+              'tracestate'
+            )
+          )
           OR (
             table_name = 'foundation_async_tasks'
             AND column_name IN ('id', 'created_at', 'completed_at')
@@ -391,6 +403,15 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     assert.equal(columnType("users", "created_at"), "timestamp with time zone");
     assert.equal(columnType("outbox_messages", "id"), "uuid");
     assert.equal(columnType("outbox_messages", "payload"), "jsonb");
+    assert.equal(columnType("outbox_messages", "correlation_id"), "uuid");
+    assert.equal(
+      columnType("outbox_messages", "traceparent"),
+      "character varying",
+    );
+    assert.equal(
+      columnType("outbox_messages", "tracestate"),
+      "character varying",
+    );
     assert.equal(columnType("foundation_async_tasks", "id"), "uuid");
     assert.equal(
       columnType("foundation_async_tasks", "created_at"),
@@ -562,5 +583,49 @@ test("foundation models persist correctly in local PostgreSQL", async () => {
     } finally {
       await prisma.$disconnect();
     }
+  }
+});
+
+test("reports slow Prisma operation timing without query text or arguments", async () => {
+  const timings: DatabaseQueryTiming[] = [];
+  const prisma = createDatabaseClient({
+    connectionString,
+    slowQueryThresholdMilliseconds: 0,
+    onSlowQuery(timing) {
+      timings.push(timing);
+    },
+  });
+
+  try {
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+
+    assert.equal(timings.length, 1);
+    const timing = timings[0];
+    assert.ok(timing);
+    assert.equal(timing.model, undefined);
+    assert.equal(timing.operation, "$queryRaw");
+    assert.equal(Number.isFinite(timing.durationMilliseconds), true);
+    assert.ok(timing.durationMilliseconds >= 0);
+    assert.equal("query" in timing, false);
+    assert.equal("args" in timing, false);
+  } finally {
+    await prisma.$disconnect();
+  }
+
+  const belowThreshold: DatabaseQueryTiming[] = [];
+  const fastQueryClient = createDatabaseClient({
+    connectionString,
+    slowQueryThresholdMilliseconds: 60_000,
+    onSlowQuery(timing) {
+      belowThreshold.push(timing);
+    },
+  });
+  try {
+    await fastQueryClient.$connect();
+    await fastQueryClient.$queryRaw`SELECT 1`;
+    assert.deepEqual(belowThreshold, []);
+  } finally {
+    await fastQueryClient.$disconnect();
   }
 });

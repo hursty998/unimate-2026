@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { pushRegistrationResponseSchema } from "@unimate/contracts";
 import { FOUNDATION_PUSH_SEND_JOB_TYPE } from "@unimate/jobs";
+import { parseNodeObservabilityConfig } from "@unimate/observability/node";
 import { test } from "node:test";
 import { createApiApplication } from "../../app.js";
 import type { ApiConfig } from "../../config/environment.js";
@@ -25,6 +26,7 @@ const config: ApiConfig = {
   supabaseJwtAudience: "authenticated",
   supabaseSecretKey: "sb_secret_test-only",
   supabaseStorageBucket: "foundation-storage-proof",
+  observability: parseNodeObservabilityConfig({ NODE_ENV: "test" }),
 };
 
 test("authenticated push registration transfers ownership safely and queues only registration IDs", async () => {

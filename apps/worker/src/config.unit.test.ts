@@ -17,6 +17,12 @@ test("parses explicit PostgreSQL connections and safe worker defaults", () => {
     maxDeliveryAttempts: 5,
     pollIntervalMilliseconds: 1_000,
     foundationPushReceiptCheckDelaySeconds: 900,
+    observability: {
+      environment: "development",
+      logLevel: "info",
+      traceExporter: "none",
+      slowQueryThresholdMilliseconds: 250,
+    },
   });
 });
 

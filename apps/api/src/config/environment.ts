@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  parseNodeObservabilityConfig,
+  type NodeObservabilityConfig,
+} from "@unimate/observability/node";
 
 const httpOriginSchema = z
   .string()
@@ -103,12 +107,14 @@ export type ApiConfig = {
   supabaseJwtAudience: string;
   supabaseSecretKey: string | undefined;
   supabaseStorageBucket: string | undefined;
+  observability: NodeObservabilityConfig;
 };
 
 export function parseApiConfig(
   environment: NodeJS.ProcessEnv = process.env,
 ): ApiConfig {
   const parsedEnvironment = apiEnvironmentSchema.parse(environment);
+  const observability = parseNodeObservabilityConfig(environment);
 
   return {
     host: parsedEnvironment.API_HOST,
@@ -120,5 +126,6 @@ export function parseApiConfig(
     supabaseJwtAudience: parsedEnvironment.SUPABASE_JWT_AUDIENCE,
     supabaseSecretKey: parsedEnvironment.SUPABASE_SECRET_KEY,
     supabaseStorageBucket: parsedEnvironment.SUPABASE_STORAGE_BUCKET,
+    observability,
   };
 }

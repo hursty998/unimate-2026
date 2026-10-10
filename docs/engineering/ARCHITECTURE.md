@@ -623,32 +623,12 @@ Unexpected failures should be logged with correlation context.
 
 # 21. Observability
 
-Build observability in from the foundation.
-
-Required concepts:
-
-- structured logs;
-- request IDs;
-- correlation IDs;
-- job IDs;
-- trace context;
-- database query timing where practical;
-- provider-operation timing;
-- error reporting.
-
-Prefer OpenTelemetry-compatible instrumentation so the observability backend can change.
-
-A request that schedules asynchronous work should be traceable across:
-
-```text
-mobile
-→ API
-→ database
-→ outbox
-→ queue
-→ worker
-→ external provider
-```
+Keep structured logging, request/job context, traces, error reporting, database
+timing, and health probes within the existing observability provider boundary.
+The canonical implementation and privacy policy is
+[`OBSERVABILITY.md`](./OBSERVABILITY.md). Provider SDK imports stay in
+observability adapters or explicit process-composition code; feature code does
+not depend on a hosted observability backend.
 
 ---
 
