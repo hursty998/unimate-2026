@@ -35,4 +35,5 @@
 - Use the opt-in local Expo MCP (`dev:mcp`) for Expo-specific tasks such as router sitemap, React Native DevTools, or convenient testID/view inspection and targeted screenshots. It is iOS-simulator-only; do not use it as the physical-device verifier or drive the same simulator concurrently with `agent-device` without a clear reason.
 - Use the remote Expo MCP for current Expo documentation and supported EAS project/build/account operations.
 - Use Xcode MCP, when available, for iOS project/build/run/destination/settings/signing and native diagnostics. For native compatibility failures, test the same installed major iOS Simulator runtime as the target device when practical before another device build.
+- On Xcode 27, use DeviceHub rather than `Simulator.app` when surfacing the visible simulator GUI; prefer surfacing the already-booted simulator instead of creating another one.
 - Keep Expo config/CNG as the native source of truth; never hand-maintain generated `ios/`. If an MCP lacks an operation, use supported machine-readable or non-interactive CLI commands. Never automate interactive credential menus with PTY, keystrokes, or prompt scraping.

@@ -114,6 +114,7 @@ export function validateLocalSmokeTarget({
   return Object.freeze({
     supabaseUrl: apiUrl.origin,
     databaseUrl,
+    directUrl,
     publishableKey,
     secretKey,
   });

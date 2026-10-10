@@ -13,13 +13,18 @@ import {
   readLocalSupabaseStatus,
   validateLocalSmokeTarget,
 } from "./local-smoke-fixture.mjs";
+import {
+  BROWSER_SMOKE_API_PORT,
+  assertDedicatedSmokeApiPortAvailable,
+  isOwnedSmokeApiListener,
+} from "./smoke-api-port.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const apiDirectory = resolve(repositoryRoot, "apps/api");
 const playwrightConfig = resolve(repositoryRoot, "playwright.config.mjs");
-const apiUrl = "http://127.0.0.1:3000";
+const apiPort = BROWSER_SMOKE_API_PORT;
+const apiUrl = `http://127.0.0.1:${apiPort}`;
 const webUrl = "http://localhost:8082";
-const apiPort = 3000;
 const webPort = 8082;
 const serverSecrets = [
   process.env["SUPABASE_SECRET_KEY"],
@@ -148,8 +153,17 @@ async function waitForApi(child) {
     if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error("The local API exited before becoming healthy.");
     }
-    lastStatus = await fetchApiHealth();
-    if (lastStatus === 200) {
+    const owners = inspectPort(apiPort);
+    const ownedListener = owners.some((owner) =>
+      isOwnedSmokeApiListener(owner, child.pid, apiDirectory),
+    );
+    if (owners.length > 0 && !ownedListener) {
+      throw new Error(
+        `The dedicated browser-smoke API port ${apiPort} was claimed by a process not started by this smoke run.`,
+      );
+    }
+    lastStatus = ownedListener ? await fetchApiHealth() : null;
+    if (ownedListener && lastStatus === 200) {
       return;
     }
     await delay(250);
@@ -160,22 +174,19 @@ async function waitForApi(child) {
 }
 
 function startApi(target) {
-  const child = spawn(
-    process.execPath,
-    ["--env-file-if-exists=.env", "dist/main.js"],
-    {
-      cwd: apiDirectory,
-      env: {
-        ...process.env,
-        API_HOST: "127.0.0.1",
-        API_PORT: String(apiPort),
-        DATABASE_URL: target.databaseUrl,
-        SUPABASE_URL: target.supabaseUrl,
-        SUPABASE_SECRET_KEY: target.secretKey,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
+  const child = spawn(process.execPath, ["dist/main.js"], {
+    cwd: apiDirectory,
+    env: {
+      ...process.env,
+      API_HOST: "127.0.0.1",
+      API_PORT: String(apiPort),
+      DATABASE_URL: target.databaseUrl,
+      DIRECT_URL: target.directUrl,
+      SUPABASE_URL: target.supabaseUrl,
+      SUPABASE_SECRET_KEY: target.secretKey,
     },
-  );
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   ownedProcesses.add(child);
   child.once("close", () => ownedProcesses.delete(child));
   child.once("error", () => ownedProcesses.delete(child));
@@ -191,30 +202,14 @@ function startApi(target) {
   return child;
 }
 
-function existingApiBelongsToCheckout() {
-  return inspectPort(apiPort).some(
-    ({ cwd, command }) =>
-      cwd === apiDirectory && command.includes("dist/main.js"),
-  );
-}
-
 async function ensureApi(target) {
-  if (!(await isPortAvailable(apiPort))) {
-    if (existingApiBelongsToCheckout() && (await fetchApiHealth()) === 200) {
-      process.stdout.write("Reusing the healthy API owned by this checkout.\n");
-      return null;
-    }
-
-    const owners = inspectPort(apiPort)
-      .map(({ pid, cwd }) => `PID ${pid} (${cwd})`)
-      .join(", ");
-    throw new Error(
-      `Port ${apiPort} is occupied by an unknown or unhealthy process${owners ? `: ${owners}` : ""}. No process was stopped.`,
-    );
-  }
-
-  const child = startApi(target);
-  return child;
+  const available = await isPortAvailable(apiPort);
+  assertDedicatedSmokeApiPortAvailable(
+    apiPort,
+    available,
+    available ? [] : inspectPort(apiPort),
+  );
+  return startApi(target);
 }
 
 function stopApi(child) {
@@ -320,6 +315,12 @@ async function main() {
         `Port ${webPort} is occupied${owners ? `: ${owners}` : ""}. No process was stopped.`,
       );
     }
+    const apiAvailable = await isPortAvailable(apiPort);
+    assertDedicatedSmokeApiPortAvailable(
+      apiPort,
+      apiAvailable,
+      apiAvailable ? [] : inspectPort(apiPort),
+    );
 
     run("pnpm", ["db:check"], "Local database and migration check");
     run(
@@ -330,10 +331,8 @@ async function main() {
     throwIfInterrupted();
 
     apiProcess = await ensureApi(target);
-    if (apiProcess) {
-      await waitForApi(apiProcess);
-      process.stdout.write("Started the local API on 127.0.0.1:3000.\n");
-    }
+    await waitForApi(apiProcess);
+    process.stdout.write(`Started the local API on 127.0.0.1:${apiPort}.\n`);
     const cleanupDatabaseIdentity = await createDatabaseIdentityCleaner(
       target.databaseUrl,
     );

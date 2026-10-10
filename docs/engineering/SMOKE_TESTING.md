@@ -8,16 +8,19 @@ replacements for unit/integration verification.
 ## Browser
 
 - Use the VS Code integrated browser for visible, interactive exploration.
-- Do not use Playwright MCP for interactive exploration, even if it is
-  installed. Run `pnpm smoke:web` for the durable Chromium regression.
+- Playwright MCP is not part of the smoke workflow. Run `pnpm smoke:web` for
+  durable Chromium regression.
 - Before using an interactive browser control for login, verify that its action
   results and snapshots mask password fields. Do not read or echo field values;
   stop if the browser tool exposes a password in its output.
 - The command requires the current local Supabase stack and Prisma migrations;
-  it checks them, builds/starts the API, and starts Expo web with explicit local
-  endpoints and the local publishable key. It reuses a healthy API only when
-  the listening process belongs to this checkout and stops only an API process
-  it started.
+  it checks them, builds and starts its own API on `127.0.0.1:3013`, and starts
+  its own Expo web server with explicit local endpoints and the local
+  publishable key. The API is bound to the already-validated local PostgreSQL
+  and Supabase endpoints. If the dedicated API or web port is occupied, it
+  fails without reusing or stopping another process. It verifies the API
+  listener belongs to the exact child process it started and stops only that
+  API process.
 - The test starts with empty browser storage, enters a generated confirmed
   `example.test` account through the Foundation UI, waits for `getMe` to render
   the UniMate ID, and signs out. The Foundation form clears its temporary
@@ -64,11 +67,14 @@ replacements for unit/integration verification.
 Fixtures are synthetic, unique `example.test` users restricted to the local
 Supabase API and the PostgreSQL endpoint reported by the local Supabase CLI.
 Hosted endpoints, real credentials, and hosted mutations are out of scope.
+Real/reusable credentials and server secrets must never be exposed or committed.
 The local secret key is used only by the Node fixture/API processes; it is never
 sent to Expo/browser clients or written to fixture files, screenshots, traces,
-or normal output. Generated passwords are not printed to normal output or
-committed. A failure trace may include synthetic-only browser interaction data;
-keep it in the OS temporary directory and remove it after diagnosis.
+or normal output. Synthetic passwords are ephemeral, stored only in private
+temporary files when needed, and cleaned with their accounts. Avoid displaying
+even synthetic passwords through interactive tooling. A failure trace may
+include synthetic-only browser interaction data; keep it in the OS temporary
+directory and remove it after diagnosis.
 
 ## Deferred
 
