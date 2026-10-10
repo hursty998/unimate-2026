@@ -3,6 +3,24 @@
 **Status: ACTIVE.** Local implementation is complete; remote workflow
 execution and merge protection have not been proved.
 
+## First remote run follow-up
+
+- Commit `f3c582e` (`38080850708`) parsed and started the workflow. The safe
+  verifier report was uploaded and inspected.
+- Remote steps `format`, `tooling tests`, and `secret check` passed. The Turbo
+  task failed because strict task environment filtering did not pass
+  `DIRECT_URL` to `@unimate/database#generate`; Prisma config requires the
+  variable even for client generation. Remaining verify steps and web smoke
+  were not run.
+- Fix: declare task-scoped `DIRECT_URL` passthrough for Turbo `generate`.
+  No hosted credential or database content is included in cache hashing.
+- Local proof after the fix: 63 tooling tests passed; a synthetic invalid
+  `DIRECT_URL` reached Prisma validation through Turbo and was rejected before
+  generation; `pnpm verify:changed` passed in 13.4 seconds; final
+  `pnpm verify` passed all 15 steps in 22.7 seconds.
+- The rerun and remote artifact/ruleset acceptance remain pending after the
+  user commits and pushes this fix.
+
 ## Baseline
 
 - Began from clean `development` at `09bc929`; Phase 14 completion and

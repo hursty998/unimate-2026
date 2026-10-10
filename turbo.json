@@ -27,6 +27,9 @@
       "cache": false,
       "persistent": true
     },
+    "generate": {
+      "passThroughEnv": ["DIRECT_URL"]
+    },
     "openapi:generate": {
       "dependsOn": ["build"],
       "cache": false

@@ -12,6 +12,9 @@ const workflow = await readFile(
   path.join(repositoryRoot, ".github/workflows/ci.yml"),
   "utf8",
 );
+const turbo = JSON.parse(
+  await readFile(path.join(repositoryRoot, "turbo.json"), "utf8"),
+);
 
 test("foundation CI covers development PRs, development pushes, and manual runs", () => {
   assert.match(
@@ -51,6 +54,15 @@ test("the single Foundation job delegates quality checks to the canonical verifi
   );
   assert.match(workflow, /timeout-minutes:\s*25/);
   assert.match(workflow, /cancel-in-progress:\s*true/);
+});
+
+test("Prisma generation receives DIRECT_URL through Turbo strict mode without hashing it", () => {
+  assert.deepEqual(turbo.tasks.generate?.passThroughEnv, ["DIRECT_URL"]);
+  assert.equal(
+    turbo.tasks.generate?.env?.includes("DIRECT_URL") ?? false,
+    false,
+  );
+  assert.equal(turbo.globalEnv?.includes("DIRECT_URL") ?? false, false);
 });
 
 test("foundation CI has no hosted credentials, privileged workflow, or deployment commands", () => {

@@ -22,6 +22,13 @@ passes on GitHub. The follow-up should require `Foundation` for the normal PR
 path; do not change the current direct-push policy or add unrelated environment
 or native checks without an owner decision.
 
+The first real run, commit `f3c582e` ([Actions run 38080850708](https://github.com/hursty998/unimate-2026/actions/runs/38080850708)),
+confirmed GitHub parsed and started the workflow but failed during canonical
+verification: Turbo strict mode did not forward `DIRECT_URL` to Prisma's
+`generate` task. The uploaded safe report was inspected. The task-scoped
+pass-through fix is local and awaits a new pushed run; browser smoke has not
+yet run on GitHub.
+
 ## Toolchain and sequence
 
 The job uses GitHub-hosted `ubuntu-24.04`, Node from `.node-version`, pnpm from
@@ -75,6 +82,10 @@ Prepared integration commands use the test-only output. Turbo tracks both
 build outputs, and the canonical full verifier inspects actual production and
 test-only artifacts after building. Tooling also discovers TypeScript test
 workspaces and requires each one to remain in the artifact inventory.
+Turbo's `generate` task passes `DIRECT_URL` through strict task-environment
+filtering because Prisma config validates it during client generation. It is
+pass-through rather than a cache-hashed input: generation does not connect to
+or vary by database contents or credentials.
 
 ## Security and scope
 
