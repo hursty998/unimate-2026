@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
@@ -32,6 +33,7 @@ test("foundation CI uses a read-only pull-request posture and immutable actions"
   assert.doesNotMatch(workflow, /pull_request_target/);
   assert.match(workflow, /^\s*contents:\s*read\s*$/m);
   assert.match(workflow, /persist-credentials:\s*false/);
+  assert.doesNotMatch(workflow, /id-token:\s*write/);
   const actionReferences = [
     ...workflow.matchAll(/^\s*uses:\s*([^\s#]+)/gm),
   ].map((match) => match[1]);
@@ -56,16 +58,56 @@ test("the single Foundation job delegates quality checks to the canonical verifi
   assert.match(workflow, /cancel-in-progress:\s*true/);
 });
 
-test("CI generates the ignored OpenAPI check input before canonical verification", () => {
-  const generateOpenApiIndex = workflow.indexOf("run: pnpm openapi:generate");
-  const verifyIndex = workflow.indexOf(
-    "node scripts/verify.mjs --report-json .ci-artifacts/verify.json",
+test("Turbo cache restores with toolchain-scoped fallback and only saves successful development pushes", () => {
+  assert.match(
+    workflow,
+    /uses:\s*actions\/cache\/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9/,
   );
+  assert.match(
+    workflow,
+    /uses:\s*actions\/cache\/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9/,
+  );
+  assert.match(workflow, /name: Warn if Turbo cache restore failed/);
+  assert.match(workflow, /name: Warn if Turbo cache save failed/);
+  assert.equal(
+    workflow.match(/continue-on-error:\s*true/g)?.length,
+    2,
+    "optional cache failures must not fail canonical verification",
+  );
+  assert.equal(
+    workflow.split("path: .turbo/cache").length - 1,
+    2,
+    "restore and save must only persist Turbo's task cache",
+  );
+  assert.match(
+    workflow,
+    /hashFiles\('\.node-version', 'package\.json', 'pnpm-lock\.yaml', 'turbo\.json'\)/,
+  );
+  assert.match(workflow, /github\.run_id.*github\.run_attempt/);
+  assert.match(
+    workflow,
+    /restore-keys:\s*\|\s*\n\s+turbo-\$\{\{ runner\.os \}\}-\$\{\{ hashFiles/,
+  );
+  assert.match(
+    workflow,
+    /if: success\(\) && github\.event_name == 'push' && github\.ref == 'refs\/heads\/development'.*cache-hit != 'true'/,
+  );
+  assert.ok(
+    workflow.indexOf("name: Save Turbo task cache") >
+      workflow.indexOf("name: Run durable web smoke"),
+  );
+});
 
-  assert.notEqual(generateOpenApiIndex, -1);
-  assert.notEqual(verifyIndex, -1);
-  assert.ok(generateOpenApiIndex < verifyIndex);
-  assert.equal(workflow.split("run: pnpm openapi:generate").length - 1, 1);
+test("CI checks the committed OpenAPI snapshot without regenerating it", () => {
+  assert.doesNotMatch(workflow, /pnpm openapi:generate/);
+  assert.match(
+    execFileSync(
+      "git",
+      ["ls-files", "--error-unmatch", "docs/generated/openapi.json"],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    ),
+    /^docs\/generated\/openapi\.json\n$/,
+  );
 });
 
 test("Prisma generation receives DIRECT_URL through Turbo strict mode without hashing it", () => {

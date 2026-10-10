@@ -1,7 +1,7 @@
 # Phase 15 — Continuous Integration
 
-**Status: ACTIVE.** Local implementation is complete; remote workflow
-execution and merge protection have not been proved.
+**Status: Final hardening in progress.** The base Phase 15 implementation and
+merge gate passed; the OpenAPI/cache hardening below still needs remote proof.
 
 ## First remote run follow-up
 
@@ -30,13 +30,58 @@ execution and merge protection have not been proved.
   intentionally ignored and absent from a clean checkout. The safe report was
   uploaded and inspected; database and provider lanes plus browser smoke were
   not run after this failure.
-- Fix: run the existing `pnpm openapi:generate` before the canonical verifier
-  in CI. The verifier itself retains its non-mutating OpenAPI check.
+- Initial correction ran `pnpm openapi:generate` before the canonical
+  verifier. Final hardening below replaces this with a committed snapshot so
+  CI's check can detect drift rather than compare a fresh regeneration.
 - Local proof: `pnpm openapi:generate && pnpm openapi:check:prepared` passed;
   64 focused tooling tests passed; `pnpm verify:changed` passed in 5.9
   seconds; final `pnpm verify` passed all 15 steps in 23.1 seconds.
-- Remote rerun, safe artifact inspection, browser smoke, and required-check
-  configuration remain pending after the user commits and pushes this fix.
+
+## Final remote proof
+
+- Commit `5306caf` passed the GitHub Actions `Foundation` job in
+  [run 38082442800](https://github.com/hursty998/unimate-2026/actions/runs/38082442800).
+- The canonical verifier passed all 15 steps in 116.2 seconds. The safe JSON
+  report artifact was downloaded and inspected; every step passed.
+- Chromium browser smoke passed its single end-to-end test in 33.7 seconds
+  (41.1 seconds including harness cleanup). The synthetic Auth and UniMate
+  identity fixture was cleaned. No browser traces or videos were uploaded.
+- Final remote job duration was 5m39s. Major measured stages: local Supabase
+  startup 1m43s, canonical verification 1m56s, Chromium install 22s, and
+  browser smoke 41s.
+- GitHub confirmed check-run name `Foundation`, provided by the `github-actions`
+  app (ID 15368).
+
+## Final hardening and cache review
+
+- OpenAPI drift was not truly protected while CI generated the ignored
+  comparison document immediately before checking it. The generated
+  `docs/generated/openapi.json` is now tracked; CI compares against the
+  committed snapshot and does not regenerate it.
+- The successful cold job took 5m39s: Supabase startup 103s, canonical verify
+  116.2s, Chromium install 22s, smoke 41.1s, dependency install 10s, and
+  OpenAPI generation 9s. Removing pre-verification OpenAPI generation saves
+  about 9s and makes drift detection meaningful.
+- Local `.turbo/cache` was about 45 MB. At review time, two existing GitHub
+  Actions caches occupied about 416 MB. The user selected GitHub's official
+  cache over Vercel OIDC: PRs (including forks) can restore target-branch
+  cache entries and new data is saved only after successful trusted
+  `development` pushes. Vercel OIDC cache credentials would either have to be
+  withheld from PRs (no PR speed-up) or exposed to untrusted PR code.
+- Cache keys are unique per run and include OS/toolchain/lockfile/Turbo config;
+  a stable restore prefix reuses earlier entries. Turbo task hashes validate
+  artifacts. Database/provider integration lanes run outside Turbo and remain
+  uncached. No OIDC permission, token, Vercel team variable, or Vercel policy
+  was added.
+- Restore/save failures are explicitly warned but non-fatal because the cache
+  is an optimization and correctness remains independent of cache availability.
+- Focused local proof: `pnpm openapi:generate` followed by the check passed
+  before making the snapshot tracked; afterwards `pnpm openapi:check` passed
+  without generation and 65 tooling tests passed. Remote cache restore, save,
+  and runtime impact remain pending the next GitHub run.
+- Final `pnpm verify:changed` passed in 6.9 seconds and the one final local
+  `pnpm verify` passed all 15 steps in 22.7 seconds. No smoke code changed, so
+  local `pnpm smoke:web` was not repeated.
 
 ## Baseline
 
@@ -71,19 +116,19 @@ execution and merge protection have not been proved.
 
 ## Repository rules
 
-Read-only GitHub inspection found `development` is the default branch, has no
-branch protection, and the repository has no rulesets or prior Actions runs.
-The proposed required status check is exactly `Foundation`. No remote rule has
-been modified; do not claim merge blocking until the post-push follow-up.
-For that follow-up, require `Foundation` for the normal PR path without
-silently adding a pull-request-only policy, deployment environment, or native
-check. Preserve the current direct-push policy unless repository owners
-explicitly choose otherwise.
+`development` is the default branch. Initial inspection found no branch
+protection or rulesets. After the successful run, branch protection was
+configured and read back with exactly the `Foundation` check from
+`github-actions` app ID 15368, strict up-to-date checking disabled, and
+administrator enforcement enabled. No pull-request review requirement,
+push restrictions, deployment environment, or native checks were added.
+Force-pushes and branch deletion remain enabled, matching the prior
+permissions. The repository has no rulesets.
 
 ## Local evidence
 
 - `pnpm install --frozen-lockfile` passed without lockfile changes.
-- Focused tooling suite passed (62 tests); formatting and secret scanning
+- Focused tooling suite passed (64 tests); formatting and secret scanning
   passed.
 - Production artifact invariant passed for all ten workspaces and confirmed
   19 required test-only output sentinels. Affected Turbo build, test-build,
@@ -93,7 +138,8 @@ explicitly choose otherwise.
 - `pnpm verify:changed` passed in 25.7 seconds after adding `.test-dist/` to
   the shared ESLint ignores; the first attempt exposed that generated tests
   were being linted as runtime JavaScript.
-- The single final `pnpm verify` passed all 15 steps in 22.1 seconds.
+- Final local `pnpm verify` after the CI fixes passed all 15 steps in
+  23.1 seconds.
 - All standalone affected integrations passed: database, Auth, Storage proof,
   push, authorization, providers, worker, and observability.
 - After loopback validation and explicit local-reset consent,
@@ -109,18 +155,14 @@ explicitly choose otherwise.
 The first artifact audit was too narrow and missed five workspaces. Persisted
 that lesson as a tooling invariant which discovers `tsc` workspaces with
 TypeScript tests and requires their production/test outputs to be covered.
-The largest remaining friction is the unavailable remote Ubuntu/Docker proof;
-that cannot be fixed or validated locally and remains the explicit post-push
-checkpoint.
+The largest recurring friction was implicit clean-checkout state: Prisma's
+Turbo environment and the ignored OpenAPI document were available locally but
+not represented as safe CI inputs. Task-scoped environment forwarding and a
+committed OpenAPI snapshot make both invariants explicit. Cache performance
+cannot be measured locally because the target is GitHub's cache service.
 
-## Remote acceptance pending
+## Acceptance
 
-After the user commits and pushes:
-
-1. confirm GitHub parses the workflow;
-2. inspect a real Actions run and verify the `Foundation` job passes;
-3. inspect the safe report artifact;
-4. configure or verify the required `Foundation` status check on `development`;
-5. only then move this plan to `docs/exec-plans/completed/`.
-
-There is no remote PASS yet. Do not begin Phase 16.
+The base Phase 15 implementation is complete, but this final hardening remains
+active until the updated workflow passes remotely, the safe report is inspected,
+and cache restore/save behavior is verified. Do not begin Phase 16.
