@@ -48,7 +48,9 @@ The full runner is sequential and currently has 14 steps:
 `verify:changed` intentionally stays small and has three steps: formatting,
 tooling tests, and affected Turbo lint, typecheck, build, and tests. It does
 not scan secrets, access PostgreSQL/Supabase, or run provider/integration,
-browser, device, or native-build work.
+browser, device, or native-build work. Phase 13 browser/native smoke stays in
+its separate lane: see [`SMOKE_TESTING.md`](./SMOKE_TESTING.md) and run
+`pnpm smoke:web` for the durable local browser flow.
 
 Ordinary Node-test-runner package tasks recursively discover supported `.js`,
 `.mjs`, and `.ts` test files in their normal test roots. They exclude

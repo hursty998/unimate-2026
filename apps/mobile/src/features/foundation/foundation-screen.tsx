@@ -140,7 +140,13 @@ export function FoundationScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: isSubmitting }}
             disabled={isSubmitting}
-            onPress={() => void runAuthAction(auth.signOut)}
+            onPress={() =>
+              void runAuthAction(async () => {
+                await auth.signOut();
+                setEmail("");
+                setPassword("");
+              })
+            }
             style={styles.button}
           >
             <Text>{isSubmitting ? "Signing out..." : "Sign out"}</Text>
@@ -177,7 +183,10 @@ export function FoundationScreen() {
               accessibilityState={{ disabled: isSubmitting }}
               disabled={isSubmitting}
               onPress={() =>
-                void runAuthAction(() => auth.signIn(email, password))
+                void runAuthAction(async () => {
+                  await auth.signIn(email, password);
+                  setPassword("");
+                })
               }
               style={styles.button}
             >

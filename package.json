@@ -50,9 +50,13 @@
     "worker:test:prepared": "node --env-file-if-exists=packages/database/.env scripts/worker-test.mjs",
     "observability:test": "pnpm db:generate && pnpm exec turbo run build --filter=@unimate/api --filter=@unimate/worker --output-logs=errors-only && node --env-file-if-exists=packages/database/.env --env-file-if-exists=apps/api/.env scripts/observability-test.mjs",
     "observability:test:prepared": "node --env-file-if-exists=packages/database/.env --env-file-if-exists=apps/api/.env scripts/observability-test.mjs --prepared",
+    "smoke:web": "node --env-file-if-exists=packages/database/.env --env-file-if-exists=apps/api/.env scripts/smoke-web.mjs",
+    "smoke:fixture:create": "node --env-file-if-exists=packages/database/.env --env-file-if-exists=apps/api/.env scripts/smoke-fixture.mjs create",
+    "smoke:fixture:cleanup": "node --env-file-if-exists=packages/database/.env --env-file-if-exists=apps/api/.env scripts/smoke-fixture.mjs cleanup",
     "git-diff": "node scripts/git-diff.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@unimate/eslint-config": "workspace:*",
     "eslint": "10.12.0",
     "prettier": "3.9.9",
