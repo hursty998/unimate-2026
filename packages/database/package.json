@@ -13,7 +13,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ../../scripts/clean-ts-output.mjs dist && tsc -p tsconfig.build.json",
+    "test:build": "node ../../scripts/clean-ts-output.mjs .test-dist && tsc -p tsconfig.test.json",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.scripts.json",
     "generate": "prisma generate --config prisma7.config.ts",
@@ -24,11 +25,11 @@
     "migrate:status": "prisma migrate status --config prisma7.config.ts",
     "seed": "prisma db seed --config prisma7.config.ts",
     "reset:local": "node scripts/reset-local.mjs",
-    "test": "node ../../scripts/run-workspace-tests.mjs .",
+    "test": "node ../../scripts/run-workspace-tests.mjs . .test-dist",
     "check": "pnpm validate && pnpm generate && pnpm migrate:status",
     "check:prepared": "pnpm validate && pnpm migrate:status",
-    "test:integration": "pnpm generate && pnpm build && pnpm test:integration:prepared",
-    "test:integration:prepared": "node --env-file-if-exists=.env --test dist/integration.test.js"
+    "test:integration": "pnpm generate && pnpm build && pnpm test:build && pnpm test:integration:prepared",
+    "test:integration:prepared": "node --env-file-if-exists=.env --test .test-dist/integration.test.js"
   },
   "devDependencies": {
     "@types/node": "24.19.1",

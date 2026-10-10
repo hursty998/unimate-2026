@@ -73,8 +73,8 @@ const result = spawnSync(
   [
     "--test-concurrency=1",
     "--test",
-    "apps/api/dist/modules/auth/auth.identity.integration.test.js",
-    "apps/api/dist/modules/auth/auth.supabase.integration.test.js",
+    "apps/api/.test-dist/modules/auth/auth.identity.integration.test.js",
+    "apps/api/.test-dist/modules/auth/auth.supabase.integration.test.js",
   ],
   {
     env: {

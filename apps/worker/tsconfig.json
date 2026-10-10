@@ -6,6 +6,7 @@
     "target": "ES2022",
     "rootDir": "src",
     "outDir": "dist",
+    "customConditions": ["unimate-test"],
     "types": ["node"],
     "noEmit": false
   },

@@ -37,6 +37,11 @@ export const fullSteps = [
     ],
   },
   {
+    name: "production runtime artifacts",
+    command: "node",
+    args: ["scripts/runtime-artifacts.mjs"],
+  },
+  {
     name: "OpenAPI",
     command: "pnpm",
     args: ["openapi:check:prepared"],

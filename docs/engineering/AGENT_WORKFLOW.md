@@ -97,10 +97,9 @@ OpenAPI checks, and JSON results are defined in
 [`VERIFICATION.md`](./VERIFICATION.md). Keep this workflow focused on agent
 sequencing rather than duplicating the verification contract.
 
-Before production deployment packaging, use build-specific TypeScript
-configurations where needed to exclude tests and test-support code from runtime
-artifacts while preserving test and typecheck coverage. This is deployment
-preparation, not a reason for a foundation-wide build restructure now.
+Deployable TypeScript workspaces keep production output separate from test
+compilation while retaining complete test typechecking and execution; see
+[`CI.md`](./CI.md) for the build and verification contract.
 
 Agent evaluations should wait until enough representative product-domain tasks
 exist to make them meaningful.

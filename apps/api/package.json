@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ../../scripts/clean-ts-output.mjs dist && tsc -p tsconfig.build.json",
+    "test:build": "node ../../scripts/clean-ts-output.mjs .test-dist && tsc -p tsconfig.test.json",
     "dev": "node --env-file-if-exists=.env --watch dist/main.js",
     "watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node ../../scripts/run-workspace-tests.mjs dist",
+    "test": "node ../../scripts/run-workspace-tests.mjs .test-dist",
     "openapi:generate": "node dist/generate-openapi.js",
     "openapi:check:prepared": "node dist/check-openapi.js"
   },

@@ -44,6 +44,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/ios/**",
       "**/node_modules/**",
+      "**/.test-dist/**",
       "**/web-build/**",
     ],
   },

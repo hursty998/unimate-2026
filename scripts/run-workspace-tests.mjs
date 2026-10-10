@@ -13,6 +13,7 @@ const ignoredDirectories = new Set([
   "build",
   "coverage",
   "dist",
+  ".test-dist",
   "node_modules",
 ]);
 
@@ -87,11 +88,11 @@ export function runTestFiles(
 
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
-  const result = spawnSync(process.execPath, ["--test", ...files], {
-    cwd,
-    env,
-    stdio,
-  });
+  const result = spawnSync(
+    process.execPath,
+    ["--conditions=unimate-test", "--test", ...files],
+    { cwd, env, stdio },
+  );
 
   if (result.error) {
     throw new Error(

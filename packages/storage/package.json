@@ -18,10 +18,11 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ../../scripts/clean-ts-output.mjs dist && tsc -p tsconfig.build.json",
+    "test:build": "node ../../scripts/clean-ts-output.mjs .test-dist && tsc -p tsconfig.test.json",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node ../../scripts/run-workspace-tests.mjs dist"
+    "test": "node ../../scripts/run-workspace-tests.mjs .test-dist"
   },
   "devDependencies": {
     "@types/node": "24.19.1",

@@ -42,6 +42,8 @@ Use:
   [`BACKGROUND_JOBS.md`](./docs/engineering/BACKGROUND_JOBS.md)
 - Verification lanes and reports:
   [`VERIFICATION.md`](./docs/engineering/VERIFICATION.md)
+- GitHub Actions and merge-gate expectations:
+  [`CI.md`](./docs/engineering/CI.md)
 - Authentication: `packages/auth/`
 - Authorization catalogue: `packages/authorization/`
 - Provider packages: `packages/storage/`, `packages/queue/`,

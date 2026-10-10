@@ -7,26 +7,39 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "unimate-test": {
+        "types": "./.test-dist/index.d.ts",
+        "import": "./.test-dist/index.js",
+        "default": "./.test-dist/index.js"
+      },
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./supabase": {
+      "unimate-test": {
+        "types": "./.test-dist/supabase.d.ts",
+        "import": "./.test-dist/supabase.js",
+        "default": "./.test-dist/supabase.js"
+      },
       "types": "./dist/supabase.d.ts",
       "import": "./dist/supabase.js",
       "default": "./dist/supabase.js"
     },
     "./supabase-test-support": {
-      "types": "./dist/supabase-test-support.d.ts",
-      "import": "./dist/supabase-test-support.js",
-      "default": "./dist/supabase-test-support.js"
+      "unimate-test": {
+        "types": "./.test-dist/supabase-test-support.d.ts",
+        "import": "./.test-dist/supabase-test-support.js",
+        "default": "./.test-dist/supabase-test-support.js"
+      }
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ../../scripts/clean-ts-output.mjs dist && tsc -p tsconfig.build.json",
+    "test:build": "node ../../scripts/clean-ts-output.mjs .test-dist && tsc -p tsconfig.test.json",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node ../../scripts/run-workspace-tests.mjs dist"
+    "test": "node ../../scripts/run-workspace-tests.mjs .test-dist"
   },
   "dependencies": {
     "pg": "8.23.1"

@@ -188,7 +188,7 @@ const result = spawnSync(
   [
     "--test-concurrency=1",
     "--test",
-    "apps/api/dist/modules/storage-proof/storage-proof.integration.test.js",
+    "apps/api/.test-dist/modules/storage-proof/storage-proof.integration.test.js",
   ],
   {
     cwd: repositoryRoot,

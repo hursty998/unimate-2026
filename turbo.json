@@ -9,10 +9,14 @@
       "dependsOn": ["^lint"]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "build", "^test:build"]
     },
     "test": {
-      "dependsOn": ["^build", "build"]
+      "dependsOn": ["^build", "build", "^test:build", "test:build"]
+    },
+    "test:build": {
+      "dependsOn": ["^build", "build", "^test:build"],
+      "outputs": [".test-dist/**"]
     },
     "dev": {
       "dependsOn": ["^build"],

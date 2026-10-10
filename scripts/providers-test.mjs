@@ -98,8 +98,8 @@ const result = spawnSync(
   [
     "--test-concurrency=1",
     "--test",
-    "packages/storage/dist/supabase.integration.test.js",
-    "packages/queue/dist/supabase.integration.test.js",
+    "packages/storage/.test-dist/supabase.integration.test.js",
+    "packages/queue/.test-dist/supabase.integration.test.js",
   ],
   {
     cwd: repositoryRoot,

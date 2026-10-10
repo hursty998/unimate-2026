@@ -30,7 +30,7 @@ const result = spawnSync(
   [
     "--test-concurrency=1",
     "--test",
-    "apps/api/dist/modules/authorization/authorization.integration.test.js",
+    "apps/api/.test-dist/modules/authorization/authorization.integration.test.js",
   ],
   { stdio: "inherit" },
 );

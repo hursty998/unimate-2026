@@ -5,7 +5,7 @@ import process from "node:process";
 import { Writable } from "node:stream";
 import { URL, fileURLToPath } from "node:url";
 import path from "node:path";
-import { withSupabaseTestQueue } from "../packages/queue/dist/supabase-test-support.js";
+import { withSupabaseTestQueue } from "../packages/queue/.test-dist/supabase-test-support.js";
 import { createApiApplication } from "../apps/api/dist/app.js";
 import { parseApiConfig } from "../apps/api/dist/config/environment.js";
 import { DatabaseClientService } from "../apps/api/dist/infrastructure/database/database.module.js";

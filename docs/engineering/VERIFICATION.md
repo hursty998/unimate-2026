@@ -11,7 +11,8 @@ lanes. Keep agent workflow sequencing in
   architecture tooling tests directly without invoking the verification runner.
 - `pnpm verify:changed` runs format checking, tooling tests, and affected
   Turbo lint, typecheck, build, and tests.
-- `pnpm verify` runs the complete local gate described below.
+- `pnpm verify` runs the complete local gate described below, including the
+  production runtime-artifact invariant after workspace builds.
 - `pnpm verify:verbose` runs the same full gate while streaming successful
   child output.
 - `node scripts/verify.mjs --report-json <path>` writes a versioned JSON result.
@@ -28,29 +29,41 @@ lanes. Keep agent workflow sequencing in
 
 ## Full and changed lanes
 
-The full runner is sequential and currently has 14 steps:
+The full runner is sequential and currently has 15 steps:
 
 1. formatting;
 2. tooling tests;
 3. secret scanning;
 4. Turbo lint, root lint, typecheck, build, and unit tests;
-5. non-mutating OpenAPI consistency check;
-6. database schema and migration check;
-7. database integration;
-8. authentication integration;
-9. storage-proof integration;
-10. push-registration integration;
-11. authorization integration;
-12. provider integration;
-13. worker integration;
-14. observability integration.
+5. production runtime-artifact invariant;
+6. non-mutating OpenAPI consistency check;
+7. database schema and migration check;
+8. database integration;
+9. authentication integration;
+10. storage-proof integration;
+11. push-registration integration;
+12. authorization integration;
+13. provider integration;
+14. worker integration;
+15. observability integration.
+
+For deployable TypeScript workspaces, `tsconfig.json` remains the complete
+typechecking configuration, including tests. Production `build` scripts use
+`tsconfig.build.json` and emit runtime code to `dist/`; `test:build` uses
+`tsconfig.test.json` and emits test code/support to the ignored `.test-dist/`.
+Turbo tracks `.test-dist/**` as the output of `test:build`, and tests depend on
+that task. The full verifier checks actual production and test-only artifacts.
+Prepared integration commands point at `.test-dist/` and remain independently
+buildable. Test discovery and migration semantics are unchanged.
 
 `verify:changed` intentionally stays small and has three steps: formatting,
 tooling tests, and affected Turbo lint, typecheck, build, and tests. It does
 not scan secrets, access PostgreSQL/Supabase, or run provider/integration,
 browser, device, or native-build work. Phase 13 browser/native smoke stays in
 its separate lane: see [`SMOKE_TESTING.md`](./SMOKE_TESTING.md) and run
-`pnpm smoke:web` for the durable local browser flow.
+`pnpm smoke:web` for the durable local browser flow. GitHub CI runs that
+browser smoke after the canonical verifier; it is not part of local
+`pnpm verify`.
 
 Ordinary Node-test-runner package tasks recursively discover supported `.js`,
 `.mjs`, and `.ts` test files in their normal test roots. They exclude
@@ -98,7 +111,8 @@ document when command or lane semantics change.
 
 - Phase 13 owns browser and native smoke flows.
 - Phase 14 owns EAS development workflows and native build distribution.
-- Phase 15 owns CI and production deployment packaging.
+- Phase 15 owns CI and production build/test artifact separation; see
+  [`CI.md`](./CI.md).
 - Agent evaluations wait for representative product-domain tasks.
 - PostHog and product analytics remain separate from operational observability.
 - No coverage/debt score or dashboard is produced; the per-run lane inventory is

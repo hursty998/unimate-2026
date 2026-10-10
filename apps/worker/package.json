@@ -5,12 +5,13 @@
   "type": "module",
   "main": "./dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ../../scripts/clean-ts-output.mjs dist && tsc -p tsconfig.build.json",
+    "test:build": "node ../../scripts/clean-ts-output.mjs .test-dist && tsc -p tsconfig.test.json",
     "dev": "tsx watch src/main.ts",
     "start": "node --env-file-if-exists=.env dist/main.js",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node ../../scripts/run-workspace-tests.mjs dist"
+    "test": "node ../../scripts/run-workspace-tests.mjs .test-dist"
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.1",

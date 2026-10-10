@@ -96,9 +96,10 @@ const integration = run(
   process.execPath,
   [
     "--test-concurrency=1",
+    "--conditions=unimate-test",
     "--test",
-    "apps/worker/dist/worker.integration.test.js",
-    "apps/worker/dist/push-worker.integration.test.js",
+    "apps/worker/.test-dist/worker.integration.test.js",
+    "apps/worker/.test-dist/push-worker.integration.test.js",
   ],
   {
     env: {

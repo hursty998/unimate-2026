@@ -81,5 +81,6 @@ directory and remove it after diagnosis.
 ## Deferred
 
 - Physical-device distribution and EAS Update: Phase 14.
-- CI: Phase 15.
+- CI runs `pnpm smoke:web` after the canonical foundation verifier; see
+  [`CI.md`](./CI.md).
 - Full product-journey end-to-end coverage: later product implementation.
