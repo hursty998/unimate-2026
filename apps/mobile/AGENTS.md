@@ -4,6 +4,8 @@
 
 - The repository-root `AGENTS.md` applies here.
 - Native dependency inventory and rebuild policy: [`docs/engineering/NATIVE_RUNTIME.md`](../../docs/engineering/NATIVE_RUNTIME.md).
+- EAS development builds, fingerprint checks, build reuse, and OTA updates:
+  [`docs/engineering/EAS_WORKFLOW.md`](../../docs/engineering/EAS_WORKFLOW.md).
 - Use installed official Expo skills and `agent-device` guidance for current framework and device workflows.
 
 ## Working directory
@@ -17,7 +19,14 @@
 - Before starting Metro on port 8081, check whether a healthy Expo/Metro server is already listening; when appropriate, query `http://localhost:8081/status` and look for `packager-status:running`.
 - A healthy status response alone does not establish which checkout owns the server. Check its process/worktree context when needed, and reuse it when it belongs to this checkout.
 - Do not start a duplicate server just because a validation command asks for one. If the existing server is stale or belongs to another checkout, diagnose it before taking action; do not assume a port identifies a process that is safe to terminate.
-- For iOS/Android QA, use the `dev` script rather than the web-target `web` script; an installed development client can otherwise keep showing a cached bundle. Reconnect with an explicit Metro host/port and verify the changed UI on-device before accepting the runtime result.
+- For iOS/Android QA, use the `dev` script rather than the web-target `web`
+  script; an installed development client can otherwise keep showing a cached
+  bundle. For simulators/emulators, do not load the ignored physical-device
+  `.env`; use local loopback settings from
+  [`SMOKE_TESTING.md`](../../docs/engineering/SMOKE_TESTING.md) and
+  [`EAS_WORKFLOW.md`](../../docs/engineering/EAS_WORKFLOW.md). Reconnect with an
+  explicit Metro host/port and verify the changed UI on-device before accepting
+  the runtime result.
 
 ## Verification
 
@@ -36,4 +45,11 @@
 - Use the remote Expo MCP for current Expo documentation and supported EAS project/build/account operations.
 - Use Xcode MCP, when available, for iOS project/build/run/destination/settings/signing and native diagnostics. For native compatibility failures, test the same installed major iOS Simulator runtime as the target device when practical before another device build.
 - On Xcode 27, use DeviceHub rather than `Simulator.app` when surfacing the visible simulator GUI; prefer surfacing the already-booted simulator instead of creating another one.
+- If physical iOS automation reports macOS DevToolsSecurity is disabled, do
+  not enable it with `sudo` without user approval. Use screenshot evidence when
+  it is sufficient; ask before changing host security to obtain accessibility
+  automation.
 - Keep Expo config/CNG as the native source of truth; never hand-maintain generated `ios/`. If an MCP lacks an operation, use supported machine-readable or non-interactive CLI commands. Never automate interactive credential menus with PTY, keystrokes, or prompt scraping.
+- Before deciding a native rebuild is needed, compare the development EAS
+  fingerprint and reuse a compatible build. Routine development work must not
+  publish to the production channel.

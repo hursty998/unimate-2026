@@ -64,6 +64,9 @@
     "runtimeVersion": {
       "policy": "fingerprint"
     },
+    "updates": {
+      "url": "https://u.expo.dev/f38b01f9-f946-4d79-a4c5-2927f2622487"
+    },
     "extra": {
       "router": {},
       "eas": {

@@ -5,7 +5,7 @@ This document is the inventory and change policy for the Expo native runtime in
 
 ## Runtime baseline
 
-- Expo SDK: 57 (`expo` 57.0.27), stable.
+- Expo SDK: 57 (`expo` 57.0.27), stable as checked on 10 October 2026.
 - React Native: 0.86.3.
 - React: 19.2.3.
 - React Native Web: 0.21.3.
@@ -27,14 +27,18 @@ This document is the inventory and change policy for the Expo native runtime in
   factory without also starting a legacy app-delegate window. Keep both changes
   in Expo config/plugin source; never patch generated `ios/` files.
 - The repository is currently located at `/Users/henry/Documents/Projects/UniMates-2026/unimate-2026`. Standard SDK 57 CNG and local builds work from this no-space path without repository-specific shell-path workarounds.
-- `runtimeVersion.policy` is `fingerprint`. No EAS Update URL, channel, OTA
-  publishing, or update credentials are configured in Phase 2.
+- `runtimeVersion.policy` is `fingerprint`; EAS Update uses the existing
+  project's `updates.url`. Development updates use the `development` channel
+  and environment. Development clients are not pinned to a channel.
 - The flat-gray app icon/splash asset is a replaceable placeholder, not final
   UniMate branding.
 
 Expo SDK 57 was verified as stable in the
 [SDK 57 release notes](https://expo.dev/changelog/sdk-57) and the
 [versioned SDK 57 reference](https://docs.expo.dev/versions/v57.0.0/).
+The official current lookup did not show SDK 58 as stable, so Phase 14 keeps
+SDK 57 and React Native 0.86.3. The proven iOS 27 scene-lifecycle plugin stays
+enabled; it is not replaced or removed.
 The versioned Expo installer selected SDK-compatible versions for Expo
 packages, Stripe, and React Native SVG. Direct dependencies are pinned to the
 exact versions selected by the scaffold and Expo-compatible installer.
@@ -60,6 +64,7 @@ native rebuild.
 | `expo-glass-effect`                         | 57.0.4  | Yes            | Transitive Expo Router SDK 57 dependency; no glass effect is used or selected as a UniMate visual convention.                       | No permission or app-specific configuration.                                                                                                                                                                                                |
 | `expo-symbols`                              | 57.0.3  | Yes            | Transitive Expo Router SDK 57 dependency; no symbol/icon system is selected in this phase.                                          | No permission or app-specific configuration.                                                                                                                                                                                                |
 | `expo-dev-client`                           | 57.0.19 | Yes            | Required now; the supported development strategy is a custom development client, not Expo Go.                                       | Config plugin selects the development launcher; rebuild to update the client.                                                                                                                                                               |
+| `expo-updates`                              | 57.0.25 | Yes            | Required for EAS Update delivery and safe update diagnostics.                                                                       | Native runtime dependency. `updates.url` is configured and the runtime policy is `fingerprint`; adding/upgrading it requires a development-client rebuild.                                                                                  |
 | `expo-constants`                            | 57.0.21 | Yes            | Required now; Expo app/device configuration metadata and Router support.                                                            | No permission.                                                                                                                                                                                                                              |
 | `expo-linking`                              | 57.0.12 | Yes            | Required now; Router linking and future app/universal links.                                                                        | `unimate://` is configured; HTTPS domains are deferred.                                                                                                                                                                                     |
 | `react-native-screens`                      | 4.26.2  | Yes            | Required now; native navigation screen primitives.                                                                                  | Used by Expo Router; no permission.                                                                                                                                                                                                         |
@@ -88,7 +93,16 @@ native rebuild.
 | `react-native-url-polyfill`                 | 4.0.0   | No             | URL compatibility used by the Supabase React Native Auth adapter.                                                                   | JavaScript package; no native configuration or permission.                                                                                                                                                                                  |
 | `@react-native-async-storage/async-storage` | 2.2.0   | Yes            | Pre-baked for small, non-sensitive persistent key/value preferences. It is distinct from SQLite and SecureStore.                    | Unencrypted; do not store credentials, tokens, or sensitive data. No permission.                                                                                                                                                            |
 | `@stripe/stripe-react-native`               | 0.64.0  | Yes            | Pre-baked for approved future paid Event and merchandise flows; no payment UI or transaction logic is implemented.                  | Native SDK autolinks. The optional Stripe config plugin is not enabled because Apple Pay merchant configuration is not approved/provisioned; add it with a real merchant identifier when payments are implemented.                          |
-| `@sentry/react-native`                      | 7.11.0  | Yes            | Optional JavaScript initialization is active only when `EXPO_PUBLIC_SENTRY_DSN` is configured; default PII and replay are disabled. | No native rebuild or config plugin is needed. Source-map/symbol upload and release integration remain deferred to the final EAS workflow; see [`OBSERVABILITY.md`](./OBSERVABILITY.md).                                                     |
+| `@sentry/react-native`                      | 7.11.0  | Yes            | Optional JavaScript initialization is active only when `EXPO_PUBLIC_SENTRY_DSN` is configured; default PII and replay are disabled. | No native rebuild or config plugin is needed. No hosted DSN/auth token is configured; source-map/release integration remains deferred. See [`OBSERVABILITY.md`](./OBSERVABILITY.md).                                                        |
+
+## PostHog native envelope
+
+No PostHog SDK, replay package, account, key, provider, or event tracking is
+pre-baked or active. Current official React Native session replay setup
+requires native packages/configuration and explicit SDK enablement; an inert
+pre-bake was not established as safe. Defer it until an approved PostHog
+project exists. Enabling session replay later requires native validation and a
+new development build. See [`EAS_WORKFLOW.md`](./EAS_WORKFLOW.md).
 
 The default template's `@expo/ui`, `expo-glass-effect`, and `expo-symbols`
 sample UI and direct dependencies were removed. Expo Router brings these SDK
@@ -108,20 +122,22 @@ visual style.
 
 These are distinct capabilities, not interchangeable persistence choices.
 
-## Development build and fingerprint policy
+## Development build, update, and fingerprint policy
 
 - JavaScript/TypeScript-only changes can run in the existing compatible
-  development client through Metro; they do not require rebuilding native
-  code.
+  development client through Metro or a published EAS Update; they do not
+  require rebuilding native code.
 - A changed native dependency, Expo SDK/native framework version, config
   plugin, or native app configuration changes the native fingerprint and
   requires a new development build.
 - `runtimeVersion.policy: "fingerprint"` is configured so native-incompatible
-  runtimes do not share an update runtime identifier. Expo's EAS Update
-  configuration and publication are not enabled in Phase 2.
-- A matching native fingerprint identifies a compatible build that can be
-  reused. Automated EAS artifact lookup/build reuse is not configured yet and
-  remains Phase 14 work.
+  runtimes cannot receive updates targeting another fingerprint. Compare the
+  current platform fingerprint with successful development builds before
+  publishing or creating a cloud build; reuse a matching build.
+- EAS Update is enabled for the linked project at
+  `https://u.expo.dev/f38b01f9-f946-4d79-a4c5-2927f2622487`. The precise
+  fingerprint, build lookup, update, and physical-device workflow is in
+  [`EAS_WORKFLOW.md`](./EAS_WORKFLOW.md).
 - iOS and Android native folders are generated outputs. Change Expo config or
   supported config-plugin inputs, regenerate with Expo tooling, and never
   hand-edit or commit `ios/` or `android/`.
@@ -129,17 +145,21 @@ These are distinct capabilities, not interchangeable persistence choices.
 ## EAS build profiles
 
 - `development`: internal distribution of a custom development client for
-  physical devices.
+  physical devices, using EAS environment `development`. It is not pinned to a
+  channel: development clients can preview compatible updates from other
+  channels, and `Updates.channel` is null in development clients.
 - `development-simulator`: iOS Simulator development client, extending the
   development profile with simulator output enabled.
-- `preview`: internal, production-like stakeholder build without the
-  development client.
-- `production`: store-distribution profile. Signing and store credentials are
-  deliberately not configured in Phase 2.
+- `preview`: internal, production-like stakeholder build on channel/environment
+  `preview`.
+- `production`: channel/environment `production`; store signing and submission
+  credentials remain deliberately unconfigured.
 
-At the Phase 2 baseline, no cloud build or EAS signing credentials had been
-created. Phase 10 later configured only the approved internal iOS development
-signing/provisioning and reused the existing EAS project identity and APNs key.
+Phase 14 created one successful physical iOS development build and installed
+it on the registered iPhone. Its fingerprint/runtime is recorded in the
+completed Phase 14 execution plan along with the compatible development OTA
+proof. Phase 10's existing internal iOS signing/provisioning, EAS project
+identity, and APNs key were reused.
 
 The current iOS bundle identifier is `com.unimate.ios`; the Android package
 remains `com.unimate.app`. Reuse the existing EAS project identity and push key;
@@ -154,6 +174,11 @@ tailnet-only; Funnel, PostgreSQL, and PGMQ are not exposed. The ignored
 Storage capabilities are rewritten to that configured HTTPS Supabase origin;
 production URL behavior is unchanged. Metro remains a separate development
 server behind its own private Serve listener.
+
+EAS Update hosts the JavaScript bundle and assets, not the API or database.
+Until those services are hosted, physical-device data/auth still needs the Mac
+and phone connected to Tailscale. Tailscale Serve exposes only the approved API
+and Supabase HTTP gateways; PostgreSQL and PGMQ remain loopback-only.
 
 ## Adding or changing a native dependency
 

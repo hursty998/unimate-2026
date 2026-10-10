@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "expo-router";
+import * as Updates from "expo-updates";
 import {
   Pressable,
   ScrollView,
@@ -14,6 +15,7 @@ import { shouldShowFoundationPushProof } from "@/features/foundation/push-proof-
 import { shouldShowStorageProof } from "@/features/storage-proof/storage-proof-visibility";
 import { useAuth } from "@/lib/auth/auth-context";
 import { StorageProofPanel } from "@/features/storage-proof/storage-proof-panel";
+import { getFoundationUpdateSource } from "./update-diagnostics";
 import { useSystemHealth } from "./use-system-health";
 
 declare const __DEV__: boolean;
@@ -62,6 +64,16 @@ export function FoundationScreen() {
       <Text style={styles.title}>UniMate</Text>
       <Text style={styles.body}>Foundation ready</Text>
       <Text style={styles.body}>Platform: {process.env.EXPO_OS}</Text>
+      <Text style={styles.status}>
+        Update bundle:{" "}
+        {getFoundationUpdateSource(Updates.updateId, Updates.isEmbeddedLaunch)}
+      </Text>
+      <Text style={styles.body}>
+        Runtime version: {Updates.runtimeVersion ?? "unavailable"}
+      </Text>
+      <Text style={styles.body}>
+        EAS Update ID: {Updates.updateId ?? "none"}
+      </Text>
       <Text style={styles.status}>API: {status}</Text>
       {health.data ? (
         <>
