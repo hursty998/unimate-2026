@@ -25,6 +25,21 @@ jobs:
         with:
           persist-credentials: false
 
+      # actions/cache/restore v6.1.0
+      - name: Restore Turbo task cache
+        id: turbo-cache
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('.node-version', 'package.json', 'pnpm-lock.yaml', 'turbo.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('.node-version', 'package.json', 'pnpm-lock.yaml', 'turbo.json') }}-
+
+      - name: Warn if Turbo cache restore failed
+        if: steps.turbo-cache.outcome == 'failure'
+        run: echo "::warning title=Turbo cache restore unavailable::Continuing with a cold local Turbo cache."
+
       # pnpm/action-setup v6.1.0 reads the exact packageManager version.
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
@@ -57,9 +72,6 @@ jobs:
       - name: Apply committed migrations from zero
         run: pnpm db:migrate:deploy
 
-      - name: Generate OpenAPI verification input
-        run: pnpm openapi:generate
-
       - name: Run canonical foundation verification
         run: |
           mkdir -p .ci-artifacts
@@ -83,6 +95,20 @@ jobs:
 
       - name: Run durable web smoke
         run: pnpm smoke:web
+
+      # actions/cache/save v6.1.0; never persist output from untrusted PR code.
+      - name: Save Turbo task cache
+        id: save-turbo-cache
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/development' && steps.turbo-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .turbo/cache
+          key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
+
+      - name: Warn if Turbo cache save failed
+        if: steps.save-turbo-cache.outcome == 'failure'
+        run: echo "::warning title=Turbo cache save unavailable::Foundation verification passed, but the optional Turbo cache was not saved."
 
       # actions/upload-artifact v7.0.2
       - name: Upload safe verification report

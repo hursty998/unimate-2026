@@ -93,14 +93,18 @@ cross-process lock is needed.
 
 ## Generated OpenAPI
 
-`pnpm openapi:generate` explicitly regenerates
-[`../generated/openapi.json`](../generated/openapi.json) from the shared
-oRPC/Zod contract. `pnpm openapi:check` builds the API and compares the
-deterministically serialized current document with that artifact without
-writing it. A stale or missing artifact fails with the generation command.
-The output is intentionally ignored; generate it before full verification on a
-clean checkout. CI runs `pnpm openapi:generate` as setup, then uses the same
-non-mutating check in `pnpm verify`.
+[`../generated/openapi.json`](../generated/openapi.json) is the committed,
+deterministic output of the shared oRPC/Zod contract. `pnpm openapi:generate`
+is the explicit repair/update command. `pnpm openapi:check` builds the API and
+compares the current generated document with the committed snapshot without
+writing it; a stale or missing snapshot fails with the generation command.
+Canonical verification and CI use check semantics only, so contract drift
+cannot be hidden by regenerating the expected document immediately before
+comparison.
+
+CI may persist Turbo's `.turbo/cache` for build/typecheck/unit-test task
+outputs. Turbo task hashes remain authoritative; root database/provider
+integration lanes run outside Turbo and are not cached.
 
 ## Adding verification
 
